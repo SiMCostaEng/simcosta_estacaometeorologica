@@ -35,9 +35,11 @@ H_in_max = 3413
 H_out_min = 0       #range humidade: 0-100%
 H_out_max = 100
 
-uart_storex = UART(2, 19200)
-uart_bussola = UART(0, 4800)
-framesync = "WQMX"
+print('0')
+
+# uart_storex = UART(2, 19200)
+# uart_bussola = UART(0, 4800)
+# framesync = "WQMX"
 
 ADS1115_ADDRESS = 0x48
 
@@ -74,6 +76,7 @@ def readChannel(channel):
     return voltage
 
 while True:
+     print("1")
      T_value = T_pin.read()
      H_value = H_pin.read()
      
@@ -100,11 +103,11 @@ while True:
          #print(bussval)
      
      estacao = [framesync, WS, WD, T, H, P, bussval]
-#      #estacao = [framesync, WS_value, WD_value, T, H, GMP343_value]
-#      estacao_comma_separated = ",".join(estacao)
-#      print(estacao_comma_separated)
-#      uart_storex.write(estacao_comma_separated)  # write 5 bytes
-#      #print(uart_storex.read())
+     #estacao = [framesync, WS_value, WD_value, T, H, GMP343_value]
+     estacao_comma_separated = ",".join(estacao)
+     print(estacao_comma_separated)
+     uart_storex.write(estacao_comma_separated)  # write 5 bytes
+     print(uart_storex.read())
      sleep(0.1)          
 
 
