@@ -83,10 +83,10 @@ while True:
      
      
      estacao = [framesync, WS, WD, T, H, P]
-#      #estacao = [framesync, WS_value, WD_value, T, H, GMP343_value]
-#      estacao_comma_separated = ",".join(estacao)
-#      print(estacao_comma_separated)
-#      uart_storex.write(estacao_comma_separated)  # write 5 bytes
-#      #print(uart_storex.read())
+     #estacao = [framesync, WS_value, WD_value, T, H, GMP343_value]
+     estacao_comma_separated = ",".join(estacao)
+     print(estacao_comma_separated)
+     uart_storex.write(estacao_comma_separated)  # write 5 bytes
+     print(uart_storex.read())
      sleep(0.1)          
 
