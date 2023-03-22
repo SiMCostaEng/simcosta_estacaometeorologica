@@ -50,9 +50,9 @@ H_data = []
 P_data = []
  
 #print(type(WS_data)) 
-# uart_storex = UART(2, 19200)
+uart_storex = UART(2, 19200)
 # uart_bussola = UART(0, 4800)
-# framesync = "WQMX"
+framesync = "WQMX"
  
 ADS1115_1_ADDRESS = 0x48
 #ADS1115_2_ADDRESS = 0X49
@@ -129,13 +129,16 @@ while True:
     WS_value = readChannel_1(ADS1115_COMP_2_GND)  #random.uniform(0.0, 10.0)
     WD_value = readChannel_1(ADS1115_COMP_3_GND)
     
-    print(anemometerRead(WS_value, WD_value))
+#     print(anemometerRead(WS_value, WD_value))
+#     print(type(anemometerRead(WS_value, WD_value)))
 #     LM_value =  readChannel_2(ADS1115_COMP_0_GND)
 #     P_value = readChannel_2(ADS1115_COMP_3_GND)
-    
 #     bussola_data = getBussolaInfo(uart_bussola.read()) 
 #     a = anemometerRead(WS_value, WD_value)
-#     estacao = [framesync, a]
+#     estacao=str()
+    estacao = ''.join(str(anemometerRead(WS_value, WD_value)))
+    print(estacao)
+    print(type(estacao))
 #      #estacao = [framesync, WS_value, WD_value, T, H, GMP343_value]
 #     estacao_comma_separated = ",".join(estacao)
 #     print(estacao_comma_separated)
