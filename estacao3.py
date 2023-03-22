@@ -37,9 +37,9 @@ H_out_max = 100
 
 print('0')
 
-# uart_storex = UART(2, 19200)
+uart_storex = UART(2, 19200)
 # uart_bussola = UART(0, 4800)
-# framesync = "WQMX"
+framesync = "WQMX"
 
 ADS1115_ADDRESS = 0x48
 
@@ -96,13 +96,13 @@ while True:
      #print("Channel 0: {:<4.2f}".format(P))
      print(WS_value)
      
-     bussola = uart_bussola.read()
-     if bussola != None:
-         bussola=str(bussola)
-         bussval = get_first_nbr_from_str(bussola)
-         #print(bussval)
+#      bussola = uart_bussola.read()
+#      if bussola != None:
+#          bussola=str(bussola)
+#          bussval = get_first_nbr_from_str(bussola)
+#          #print(bussval)
      
-     estacao = [framesync, WS, WD, T, H, P, bussval]
+     estacao = [framesync, WS, WD, T, H, P]#, bussval]
      #estacao = [framesync, WS_value, WD_value, T, H, GMP343_value]
      estacao_comma_separated = ",".join(estacao)
      print(estacao_comma_separated)
