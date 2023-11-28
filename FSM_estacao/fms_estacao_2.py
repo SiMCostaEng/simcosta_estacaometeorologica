@@ -8,17 +8,9 @@ import ustruct
 from ulab import numpy as np
 import random
 
-
-CH_A_MUX = Pin(15, mode=Pin.OUT, value=0)   
-CH_B_MUX  = Pin(4, mode=Pin.OUT, value=0)
-
-BAUDRATE_STORX = 19200
-BAUDRATE_COMPASS = 4800
-BAUDRATE_PROBECO2 = 19200
-
-uart_ch = 0
-uart = UART(2, BAUDRATE_STORX) #trocar uart no esquemático para a UART 2. A UART 0 é utilizada como UART DOWNLOAD
-
+   
+uart_storex = UART(2, 19200)
+#uart_bussola = UART(0, 4800)
 framesync = "STATION"
 
 WS_in_min = 0.0
@@ -102,18 +94,8 @@ def handlerInterrupt(timer):
         TH_data = TemperatureHumidityRead(T_value, H_value)
         wind_data = anemometerRead(WS_value, WD_value)
         pressure_data = barometerRead(P_value)
-        
-        uart_ch=2 #bussola
-        select_uart(uart_ch)
-        
-        bussola_data = getBussolaInfo(uart.read())
-        
-        
-        uart_ch=1 #probe co2
-        select_uart(uart_ch)
-        
-        co2_data = CarbonDioxideProbe.read(uart.read())
-        
+#     bussola_data = getBussolaInfo(uart_bussola.read())
+
         estacao = wind_data + TH_data + pressure_data#+ bussola_data
 
         estacao=str(estacao).strip('[]')   #transforma list em string retirando conchetes da msg
@@ -126,6 +108,8 @@ def handlerInterrupt(timer):
         print(estacao_comma_separated)
     
 timer.init(period=1000, mode=machine.Timer.PERIODIC, callback=handlerInterrupt) #period=1000, ou seja, a interrupção acontece uma vez por segundo; mode=machine.Timer.PERIODIC pois acontece em loop, a cada 1000 ms; callback=handlerInterrupt ou seja, a função que vai acontecer quando a interrupção for chamada
+
+
 
 
 def readChannel_1(channel):
@@ -144,27 +128,7 @@ def readChannel_2(channel):
     voltage = adc_2.getResult_V()
     return voltage
 
-def select(uart_ch):
-    global uart_station, BAUDRATE_STORX, BAUDRATE_COMPASS, BAUDRATE_PROBECO2, MSG 
 
-    if uart_ch == 0:
-        uart = UART(2, BAUDRATE_STORX)
-        CH_A_MUX.value(0)
-        CH_B_MUX.value(0)
-
-    elif uart_ch == 1:
-        uart = UART(2, BAUDRATE_PROBECO2)
-        CH_A_MUX.value(1)
-        CH_B_MUX.value(0)
-                
-    elif uart_ch == 2:
-        uart = UART(2, BAUDRATE_COMPASS)
-        CH_A_MUX.value(0)
-        CH_B_MUX.value(1)
-
-    elif uart_ch == 3:
-        CH_A_MUX.value(1)
-        CH_B_MUX.value(1)
 
 def anemometerRead(WS_value, WD_value):
 
@@ -191,7 +155,10 @@ def anemometerRead(WS_value, WD_value):
 
     return anemometerData
 
+
 def barometerRead(P_value):
+
+    
     P = (P_value - P_in_min) * (P_out_max - P_out_min) / (P_in_max - P_in_min) + P_out_min
     #print(P)
     P_data.append(P)
@@ -205,6 +172,8 @@ def barometerRead(P_value):
     
     barometerData = [P_mean, P_stdev]   #List
     
+    
+
     return barometerData
 
 
@@ -223,9 +192,9 @@ def TemperatureHumidityRead(T_value, H_value):
     gc.collect() # control of garbage collection
     gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
     
-    probeTHRData = [T_mean, T_stdev, H_mean, H_stdev]
+    probeData = [T_mean, T_stdev, H_mean, H_stdev]
     #probeData = str(probeData)
-    return probeTHRData
+    return probeData
 
 def getBussolaInfo (bussola):
     if bussola != None:
@@ -246,40 +215,9 @@ def get_first_nbr_from_str(input_str):
     return float(out_number)
 
 
-class CarbonDioxideProbe:
-    def __init__(self, uart_ch):
-        self.uart_ch = 1
-        self.baudrate = 19200
-    
-    def inicializar():
-        uart_ch=1
-        uart.write("R\r\n")
-    
-    def read():
-        global uart, a, uart_ch, CarbonDioxideProbe_info
-        
-        uart_ch=1
-        uart.write("R\r\n")
-        if a < 20:
-            time.sleep(1)
-            CarbonDioxideProbe_info=uart.read()
-            #print("CarbonDioxideProbe_info: {}".format(CarbonDioxideProbe_info))
-            a+=1
-        uart.write("S\r\n")
-        return CarbonDioxideProbe_info
-    
-    def separate(CarbonDioxideProbe_info):
-        a=[]
-        
-        if CarbonDioxideProbe_info != None:
-            for word in CarbonDioxideProbe_info.split():
-                try:
-                    a.append(float(word))
-                except ValueError:
-                    pass
-           
-        CarbonDioxideProbe_data = a
-        return CarbonDioxideProbe_data
+
+
+
 
 #######################################################################################
 ############################# FINITE STATE MACHINE ####################################
@@ -470,6 +408,5 @@ def main():
 # Executando a função principal
 if __name__ == "__main__":
     main()
-
 
 
