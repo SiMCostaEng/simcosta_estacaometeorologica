@@ -2,12 +2,11 @@ import machine
 import os
 #from datetime import datetime
 from machine import Pin, UART, SoftI2C
-from time import sleep
+import time
 from ADS1115 import *
 import ustruct
 from ulab import numpy as np
 import random
-
 
 CH_A_MUX = Pin(15, mode=Pin.OUT, value=0)   
 CH_B_MUX  = Pin(4, mode=Pin.OUT, value=0)
@@ -79,9 +78,6 @@ marcador = 0
 
 timer=machine.Timer(0)
         
-
-
-
 def handlerInterrupt(timer):
     global interruptCounter
     global contador
@@ -112,7 +108,7 @@ def handlerInterrupt(timer):
         uart_ch=1 #probe co2
         select_uart(uart_ch)
         
-        co2_data = CarbonDioxideProbe.read(uart.read())
+        co2_data = CarbonDioxideProbe.read()
         
         estacao = wind_data + TH_data + pressure_data#+ bussola_data
 
@@ -126,6 +122,7 @@ def handlerInterrupt(timer):
         print(estacao_comma_separated)
     
 timer.init(period=1000, mode=machine.Timer.PERIODIC, callback=handlerInterrupt) #period=1000, ou seja, a interrupção acontece uma vez por segundo; mode=machine.Timer.PERIODIC pois acontece em loop, a cada 1000 ms; callback=handlerInterrupt ou seja, a função que vai acontecer quando a interrupção for chamada
+
 
 
 def readChannel_1(channel):
@@ -144,7 +141,7 @@ def readChannel_2(channel):
     voltage = adc_2.getResult_V()
     return voltage
 
-def select(uart_ch):
+def select_uart(uart_ch):
     global uart_station, BAUDRATE_STORX, BAUDRATE_COMPASS, BAUDRATE_PROBECO2, MSG 
 
     if uart_ch == 0:
@@ -165,6 +162,12 @@ def select(uart_ch):
     elif uart_ch == 3:
         CH_A_MUX.value(1)
         CH_B_MUX.value(1)
+
+
+
+
+
+
 
 def anemometerRead(WS_value, WD_value):
 
@@ -227,12 +230,11 @@ def TemperatureHumidityRead(T_value, H_value):
     #probeData = str(probeData)
     return probeTHRData
 
-def getBussolaInfo (bussola):
+def getBussolaInfo(bussola):
     if bussola != None:
-         bussola=str(bussola)
-         bussval = get_first_nbr_from_str(bussola)
-         print(bussval)
-    return bussval
+         bussola = get_first_nbr_from_str(str(bussola))
+         print(bussola)
+    return bussola
 
 def get_first_nbr_from_str(input_str):
     if not input_str and not isinstance(input_str, str):
@@ -257,7 +259,7 @@ class CarbonDioxideProbe:
     
     def read():
         global uart, a, uart_ch, CarbonDioxideProbe_info
-        
+        a=0
         uart_ch=1
         uart.write("R\r\n")
         if a < 20:
@@ -470,6 +472,7 @@ def main():
 # Executando a função principal
 if __name__ == "__main__":
     main()
+
 
 
 
