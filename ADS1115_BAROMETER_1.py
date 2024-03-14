@@ -21,8 +21,8 @@ adc = ADS1115(ADS1115_ADDRESS, i2c=i2c)
 
 P_in_min = 0
 P_in_max = 5
-P_out_min = 2     #range pressao 800 a 1060 hpa 
-P_out_max = 150
+P_out_min = 0     #range pressao 800 a 1060 hpa 
+P_out_max = 5
 
 #     Set the voltage range of the ADC to adjust the gain:
 #     Please note that you must not apply more than VDD + 0.3V to the input pins!
@@ -108,7 +108,7 @@ print("Channel / Voltage [V]: ")
 print(" ")
 
 while True:
-      P_value = readChannel(ADS1115_COMP_0_GND)
+      P_value = readChannel(ADS1115_COMP_3_GND)
       P = (P_value - P_in_min) * (P_out_max - P_out_min) / (P_in_max - P_in_min) + P_out_min
       print("Channel 0: {:<4.2f}".format(P))
 #     print("---------------")
