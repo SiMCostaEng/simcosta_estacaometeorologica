@@ -46,6 +46,13 @@ P_in_max = 5
 P_out_min = 800     #range pressao 800 a 1060 hpa 
 P_out_max = 1060
 
+#PCB LM35
+LM_in_min = 0.0
+LM_in_max = 1.50     #out 0mV + 10mV/°C
+LM_out_min = 2.0     #range pressao 800 a 1060 hpa 
+LM_out_max = 150.0
+
+
 WS_data = []
 # print(type(WS_data)) 
 WD_data = []
@@ -97,11 +104,13 @@ def handlerInterrupt(timer):
         H_value = readChannel_1(ADS1115_COMP_1_GND)
         WS_value = readChannel_1(ADS1115_COMP_2_GND)  #random.uniform(0.0, 10.0)
         WD_value = readChannel_1(ADS1115_COMP_3_GND)
-#     LM_value =  readChannel_2(ADS1115_COMP_0_GND)
         P_value = readChannel_2(ADS1115_COMP_3_GND)
+        LM_value =  readChannel_2(ADS1115_COMP_0_GND)
+        
         TH_data = TemperatureHumidityRead(T_value, H_value)
         wind_data = anemometerRead(WS_value, WD_value)
         pressure_data = barometerRead(P_value)
+        LM_data=InternalTemperatureRead(LM_value)
         
         uart_ch=2 #bussola
         select_uart(uart_ch)
@@ -114,7 +123,7 @@ def handlerInterrupt(timer):
         
         co2_data = CarbonDioxideProbe.read(uart.read())
         
-        estacao = wind_data + TH_data + pressure_data#+ bussola_data
+        estacao = wind_data + TH_data + pressure_data + LM_data #+ bussola_data
 
         estacao=str(estacao).strip('[]')   #transforma list em string retirando conchetes da msg
         counterstr=str(totalInterruptsCounter)
@@ -224,6 +233,22 @@ def TemperatureHumidityRead(T_value, H_value):
     gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
     
     probeTHRData = [T_mean, T_stdev, H_mean, H_stdev]
+    #probeData = str(probeData)
+    return probeTHRData
+
+
+def InternalTemperatureRead(LM_value):
+    LM = (LM_value - LM_in_min) * (LM_out_max - LM_out_min) / (LM_in_max - LM_in_min) + LM_out_min
+    LM_data.append(LM)
+    # print(len(WS_data))
+    LM_mean = np.mean(LM_data)
+    LM_stdev = np.std(LM_data)
+    
+    gc.collect() # control of garbage collection
+    gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
+    
+    InternalTempData = [LM_mean, LM_stdev]
+    print(InternalTempData)
     #probeData = str(probeData)
     return probeTHRData
 
