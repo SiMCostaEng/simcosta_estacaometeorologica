@@ -33,3 +33,35 @@ class CarbonDioxideProbe:
            
         CarbonDioxideProbe_data = a
         return CarbonDioxideProbe_data
+
+
+
+
+class Compass:
+    def __init__(self, uart_ch):
+        self.uart_ch=2
+        self.baudrate=4800
+
+    def inicializar():
+        uart_ch=2
+
+    def read():
+        global uart, a, uart_ch, Compass_info
+        if Compass_info != None:
+            Compass_info=str(Compass_info)
+            Compass_info = get_first_nbr_from_str(Compass_info)
+            print(Compass_info)
+        return Compass_info
+    
+    def get_first_nbr_from_str(Compass_info):
+        if not input_str and not isinstance(input_str, str):
+            return 0
+        out_number = ''
+        for ele in input_str:
+            if (ele == '.' and '.' not in out_number) or ele.isdigit():
+                out_number += ele
+            elif out_number:
+                break
+        Compass_data=float(out_number)
+        return Compass_data
+
