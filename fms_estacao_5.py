@@ -12,12 +12,13 @@ import gc
 CH_A_MUX = Pin(15, mode=Pin.OUT, value=0)   
 CH_B_MUX  = Pin(4, mode=Pin.OUT, value=0)
 
+BAUDRATE = 19200
 BAUDRATE_STORX = 19200
 BAUDRATE_COMPASS = 4800
 BAUDRATE_PROBECO2 = 19200
 
 uart_ch = 0
-uart = UART(2, BAUDRATE_STORX) #trocar uart no esquemático para a UART 2. A UART 0 é utilizada como UART DOWNLOAD
+uart = UART(2, BAUDRATE) #trocar uart no esquemático para a UART 2. A UART 0 é utilizada como UART DOWNLOAD
 
 framesync = "STATION"
 
@@ -110,20 +111,24 @@ def readChannel_2(channel):
     return voltage
 
 def select_uart(uart_ch):
-    global uart_station, BAUDRATE_STORX, BAUDRATE_COMPASS, BAUDRATE_PROBECO2, MSG 
+    global BAUDRATE_STORX, BAUDRATE_COMPASS, BAUDRATE_PROBECO2, BAUDRATE 
 
     if uart_ch == 0:
-        uart = UART(2, BAUDRATE_STORX)
+        #uart = UART(2, BAUDRATE_STORX)
+        BAUDRATE=BAUDRATE_STORX
         CH_A_MUX.value(0)
         CH_B_MUX.value(0)
 
     elif uart_ch == 1:
-        uart = UART(2, BAUDRATE_PROBECO2)
+        #uart = UART(2, 19200)
+        BAUDRATE=BAUDRATE_PROBECO2
+        uart.write("i'm in..............")
         CH_A_MUX.value(1)
         CH_B_MUX.value(0)
                 
     elif uart_ch == 2:
-        uart = UART(2, BAUDRATE_COMPASS)
+        #uart = UART(2, BAUDRATE_COMPASS)
+        BAUDRATE=BAUDRATE_COMPASS
         CH_A_MUX.value(0)
         CH_B_MUX.value(1)
 
@@ -241,35 +246,46 @@ class CarbonDioxideProbe:
         self.baudrate = 19200
     
     def inicializar():
+        global a, interruptCounter, uart_ch
         uart_ch=1
-        uart.write("R\r\n")
-    
-    def read():
-        global uart, a, uart_ch, CarbonDioxideProbe_info
-        
-        uart_ch=1
-        uart.write("R\r\n")
-        if a < 20:
+        select_uart(uart_ch)
+        print("entrei no co2 init")
+        a=0
+        while a < 10:
+            print("vai escrever R pro probe")
+            uart.write("R\r\n") 
             if interruptCounter > 0:
                 interruptCounter = interruptCounter - 1
-            CarbonDioxideProbe_info=uart.read()
-            #print("CarbonDioxideProbe_info: {}".format(CarbonDioxideProbe_info))
-            a+=1
-        uart.write("S\r\n")
-        return CarbonDioxideProbe_info
+                a+=1
     
-    def separate(CarbonDioxideProbe_info):
-        a=[]
+    def read():
+        global uart, a, uart_ch, CarbonDioxideProbe_info, interruptCounter
         
-        if CarbonDioxideProbe_info != None:
-            for word in CarbonDioxideProbe_info.split():
-                try:
-                    a.append(float(word))
-                except ValueError:
-                    pass
+        a=0
+        while a < 60:
+            if interruptCounter > 0:
+                interruptCounter = interruptCounter - 1
+                a+=1
+            
+            CarbonDioxideProbe_info=uart.read()
+            print("co2 info: {}".format(CarbonDioxideProbe_info))
+            #print("CarbonDioxideProbe_info: {}".format(CarbonDioxideProbe_info))
+            
+        uart.write("S\r\n")
+        #return CarbonDioxideProbe_info
+    
+ #   def separate(CarbonDioxideProbe_info):
+ #       a=[]
+ #       
+ #       if CarbonDioxideProbe_info != None:
+ #           for word in CarbonDioxideProbe_info.split():
+ #               try:
+ #                   a.append(float(word))
+ #               except ValueError:
+ #                   pass
            
-        CarbonDioxideProbe_data = a
-        return CarbonDioxideProbe_data
+ #       CarbonDioxideProbe_data = a
+ #       return CarbonDioxideProbe_data
 
 #######################################################################################
 ############################# FINITE STATE MACHINE ####################################
@@ -310,7 +326,7 @@ class StateWait:
         totalInterruptsCounter = 0
         interruptCounter = 0
         
-        print("wait: {}".format(input_var))
+        print("state: {}".format(input_var))
         print('going to sleep')
         
         while totalInterruptsCounter < 10:    #espera 10s para iniciar leituras
@@ -327,7 +343,7 @@ class StateWait:
         
         print('waking up')
         input_var=2
-        print("wait: {}".format(input_var))
+        print("state: {}".format(input_var))
         return StateWait().transition(input_var)     
 
 class StateRead:
@@ -349,7 +365,7 @@ class StateRead:
         global input_var
         global estacao_comma_separated
         
-        print("read: {}".format(input_var))
+        #print("read: {}".format(input_var))
         
         if input_var == 2:
             T_value = readChannel_1(ADS1115_COMP_0_GND)
@@ -371,12 +387,12 @@ class StateRead:
         
         
             #uart_ch=1 #probe co2
-            select_uart(uart_ch)
-        
+            #select_uart(uart_ch)
+            CarbonDioxideProbe.inicializar()
             co2_data = CarbonDioxideProbe.read()
         
             #estacao = wind_data + TH_data + pressure_data + LM_data +co2_data + bussola_data
-            estacao = LM_data +co2_data 
+            estacao = LM_data #+ co2_data 
 
             estacao=str(estacao).strip('[]')   #transforma list em string retirando conchetes da msg
             counterstr=str(totalInterruptsCounter)
@@ -391,14 +407,14 @@ class StateRead:
                 if interruptCounter > 0:
                     interruptCounter = interruptCounter - 1
                     totalInterruptsCounter = totalInterruptsCounter + 1
-                print("read {} amostras ".format(totalInterruptsCounter))     
+                #print("read {} amostras ".format(totalInterruptsCounter))     
         
             print("interrupt has occurred: "+ str(totalInterruptsCounter))     
             print('li tudo')
         
             totalInterruptsCounter = 0
             input_var=3
-            print("leu: {}".format(input_var))
+            print("state: {}".format(input_var))
         
 
 class StateSend:
@@ -472,6 +488,3 @@ def main():
 # Executando a função principal
 if __name__ == "__main__":
     main()
-
-
-
