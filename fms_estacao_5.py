@@ -91,7 +91,7 @@ a=0
 def handlerInterrupt(timer):
     global interruptCounter    
     interruptCounter+=1
-    print("interruptcounter: {}".format(interruptCounter))
+    #print("interruptcounter: {}".format(interruptCounter))
 timer.init(period=1000, mode=machine.Timer.PERIODIC, callback=handlerInterrupt) #period=1000, ou seja, a interrupção acontece uma vez por segundo; mode=machine.Timer.PERIODIC pois acontece em loop, a cada 1000 ms; callback=handlerInterrupt ou seja, a função que vai acontecer quando a interrupção for chamada
     
 def readChannel_1(channel):
@@ -240,53 +240,75 @@ class Compass:
             print(Compass_info)
         return Compass_info
 
+
 class CarbonDioxideProbe:
     def __init__(self, uart_ch):
         self.uart_ch = 1
         self.baudrate = 19200
     
     def inicializar():
-        global a, interruptCounter, uart_ch
+        global interruptCounter, uart_ch
         uart_ch=1
         select_uart(uart_ch)
-        print("entrei no co2 init")
+        print("Inicializando probe de CO2")
+        
         a=0
-        while a < 10:
-            print("vai escrever R pro probe")
+
+        while a < 10: # 10 seguntos de envio para ler o sensor
+            # Envia o comando R para o probe de CO2 para iniciar a leitura
             uart.write("R\r\n") 
             if interruptCounter > 0:
                 interruptCounter = interruptCounter - 1
                 a+=1
     
     def read():
-        global uart, a, uart_ch, CarbonDioxideProbe_info, interruptCounter
+        global uart, uart_ch, CarbonDioxideProbe_info, interruptCounter
         
         a=0
-        while a < 60:
+        dados_float=[]
+        concentracao_co2=[]
+        temperatura_co2=[]
+        
+        while a<60: # 60 amostras
+            
             if interruptCounter > 0:
+                print("Leitura {} de 60".format(a))
                 interruptCounter = interruptCounter - 1
+                
+                # uart.write(" 1050.7    24.5\r\n")
+                               
+                CarbonDioxideProbe_info=uart.readline()
+                #print("co2 info: {}".format(CarbonDioxideProbe_info))
+                if CarbonDioxideProbe_info != None:
+                    #print("co2 info: {}".format(CarbonDioxideProbe_info))
+                    numeros_str = CarbonDioxideProbe_info.split()
+                    # Converter os números para float e armazená-los na lista
+                    for numero in numeros_str:
+                        numero = numero.strip()  # Remover espaços em branco da string antes de converter
+                        if numero:  # Verificar se a string não está vazia após remover os espaços em branco
+                            dados_float.append(float(numero))
+                        
+                    # Extrair os números float
+                    concentracao_co2.append(dados_float[0])
+                    temperatura_co2.append(dados_float[1])
+                        
+                    dados_float=[]
                 a+=1
-            
-            CarbonDioxideProbe_info=uart.read()
-            print("co2 info: {}".format(CarbonDioxideProbe_info))
-            #print("CarbonDioxideProbe_info: {}".format(CarbonDioxideProbe_info))
-            
-        uart.write("S\r\n")
-        #return CarbonDioxideProbe_info
-    
- #   def separate(CarbonDioxideProbe_info):
- #       a=[]
- #       
- #       if CarbonDioxideProbe_info != None:
- #           for word in CarbonDioxideProbe_info.split():
- #               try:
- #                   a.append(float(word))
- #               except ValueError:
- #                   pass
-           
- #       CarbonDioxideProbe_data = a
- #       return CarbonDioxideProbe_data
 
+                # Envia o comando S para o probe de CO2 para finalizar a leitura
+                uart.write("S\r\n")
+
+                concentracao_co2_mean = np.mean(concentracao_co2)
+                concentracao_co2_stdev = np.std(concentracao_co2)
+                temperatura_co2_mean = np.mean(temperatura_co2)
+                temperatura_co2_stdev = np.std(temperatura_co2)
+                
+                gc.collect() # control of garbage collection
+                gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
+    
+                probeCO2Data = [concentracao_co2_mean, concentracao_co2_stdev, temperatura_co2_mean, temperatura_co2_stdev]   #List
+    
+        return probeCO2Data
 #######################################################################################
 ############################# FINITE STATE MACHINE ####################################
 
@@ -390,7 +412,7 @@ class StateRead:
             #select_uart(uart_ch)
             CarbonDioxideProbe.inicializar()
             co2_data = CarbonDioxideProbe.read()
-        
+            print(co2_data)
             #estacao = wind_data + TH_data + pressure_data + LM_data +co2_data + bussola_data
             estacao = LM_data #+ co2_data 
 
