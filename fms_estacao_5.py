@@ -2,7 +2,6 @@ import machine
 import os
 #from datetime import datetime
 from machine import Pin, UART, SoftI2C
-from machine import Timer
 from ADS1115 import *
 import ustruct
 from ulab import numpy as np
@@ -63,8 +62,8 @@ P_data = []
 LM_data = []
 
  
-ADS1115_1_ADDRESS = 0x48
-ADS1115_2_ADDRESS = 0X49
+ADS1115_1_ADDRESS = 0x48   # PIN ADDR = GND
+ADS1115_2_ADDRESS = 0X49   # PIR ADDR = VCC
 
 i2c = SoftI2C(scl = Pin(22), sda = Pin(21))
 
@@ -86,7 +85,10 @@ timer=machine.Timer(0)
 totalInterruptsCounter=0
 
 a=0
-        
+state_name='0'
+n_data = 60    # quantidade de medidas a ser adquirida
+
+
 
 def handlerInterrupt(timer):
     global interruptCounter    
@@ -112,7 +114,6 @@ def readChannel_2(channel):
 
 def select_uart(uart_ch):
     global BAUDRATE_STORX, BAUDRATE_COMPASS, BAUDRATE_PROBECO2, BAUDRATE 
-
     if uart_ch == 0:
         #uart = UART(2, BAUDRATE_STORX)
         BAUDRATE=BAUDRATE_STORX
@@ -136,47 +137,6 @@ def select_uart(uart_ch):
         CH_A_MUX.value(1)
         CH_B_MUX.value(1)
 
-def anemometerRead(WS_value, WD_value):
-
-    WS = (WS_value - WS_in_min) * (WS_out_max - WS_out_min) / (WS_in_max - WS_in_min) + WS_out_min
-    WS_data.append(WS)
-#     print(len(WS_data))
-    WS_mean = np.mean(WS_data)
-    WS_stdev = np.std(WS_data)
-    
-    WD = (WD_value - WD_in_min) * (WD_out_max - WD_out_min) / (WD_in_max - WD_in_min) + WD_out_min
-    
-    WD_data.append(WD)
-    WD_mean = np.mean(WD_data)
-    WD_stdev = np.std(WD_data)
-    
-    gc.collect() # control of garbage collection
-    gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
-    
-    anemometerData = [WS_mean, WS_stdev, WD_mean, WD_stdev]   #List
-    #print(type(anemometerData))
-    #anemometerData = str(anemometerData)                     #make list into string
-     
-    #print(type(anemometerData))
-
-    return anemometerData
-
-def barometerRead(P_value):
-    P = (P_value - P_in_min) * (P_out_max - P_out_min) / (P_in_max - P_in_min) + P_out_min
-    #print(P)
-    P_data.append(P)
-    #print(P_data)
-#     print(len(WS_data))
-    P_mean = np.mean(P_data)
-    P_stdev = np.std(P_data)
-  
-    gc.collect() # control of garbage collection
-    gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
-    
-    barometerData = [P_mean, P_stdev]   #List
-    
-    return barometerData
-
 def TemperatureHumidityRead(T_value, H_value):
     T = (T_value - T_in_min) * (T_out_max - T_out_min) / (T_in_max - T_in_min) + T_out_min
     T_data.append(T)
@@ -196,29 +156,89 @@ def TemperatureHumidityRead(T_value, H_value):
     #probeData = str(probeData)
     return probeTHRData
 
-def InternalTemperatureRead(LM_value):
-    LM = (LM_value - LM_in_min) * (LM_out_max - LM_out_min) / (LM_in_max - LM_in_min) + LM_out_min
-    LM_data.append(LM)
-    # print(len(WS_data))
-    LM_mean = np.mean(LM_data)
-    LM_stdev = np.std(LM_data)
-    
+def barometerRead(P_value):
+    P = (P_value - P_in_min) * (P_out_max - P_out_min) / (P_in_max - P_in_min) + P_out_min
+    #print(P)
+    P_data.append(P)
+    #print(P_data)
+#     print(len(WS_data))
+    P_mean = np.mean(P_data)
+    P_stdev = np.std(P_data)
+  
     gc.collect() # control of garbage collection
     gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
     
-    InternalTempData = [LM_mean, LM_stdev]
-    print(InternalTempData)
-    #probeData = str(probeData)
-    return InternalTempData
+    barometerData = [P_mean, P_stdev]   #List
+    
+    return barometerData
 
+class anemometer: 
+    def __init__(self, WS_in_min, WS_in_max, WS_out_min, WS_out_max, WD_in_min, WD_in_max, WD_out_min, WD_out_max):
+        self.WS_in_min = WS_in_min
+        self.WS_in_max = WS_in_max
+        self.WS_out_min = WS_out_min
+        self.WS_out_max = WS_out_max 
+        self.WD_in_min = WD_in_min
+        self.WD_in_max = WD_in_max
+        self.WD_out_min = WD_out_min
+        self.WD_out_max = WD_out_max
 
+    def read(self, WS_value, WD_value, n_data):
+        global interruptCounter
+        a=0
+        while a < n_data:
+            if interruptCounter > 0:
+                print("Leitura {} de {}".format(a, n_data))
+                interruptCounter = interruptCounter - 1 
+                WS = (WS_value - self.WS_in_min) * (self.WS_out_max - self.WS_out_min) / (self.WS_in_max - self.WS_in_min) + self.WS_out_min
+                WS_data.append(WS)
+            
+                WD = (WD_value - self.WD_in_min) * (self.WD_out_max - self.WD_out_min) / (self.WD_in_max - self.WD_in_min) + self.WD_out_min
+                WD_data.append(WD)
+                a+=1
+        
+        WS_mean = np.mean(WS_data)
+        WS_stdev = np.std(WS_data)
+        WD_mean = np.mean(WD_data)
+        WD_stdev = np.std(WD_data)
+    
+        gc.collect() # control of garbage collection
+        gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
+    
+        anemometerData = [WS_mean, WS_stdev, WD_mean, WD_stdev]   #List
+        return anemometerData
+class InternalTemperature:
+    def __init__(self, LM_in_min, LM_in_max, LM_out_min, LM_out_max):
+        self.LM_in_min=LM_in_min
+        self.LM_in_max=LM_in_max
+        self.LM_out_min=LM_out_min
+        self.LM_out_max=LM_out_max
+        
+    def read(self, LM_value, n_data):
+        global interruptCounter
+        a=0
+        while a < n_data: # 60 amostras
+            if interruptCounter > 0:
+                print("Leitura {} de {}".format(a, n_data))
+                interruptCounter = interruptCounter - 1
+                LM = (LM_value - self.LM_in_min) * (self.LM_out_max - self.LM_out_min) / (self.LM_in_max - self.LM_in_min) + self.LM_out_min
+                LM_data.append(LM)
+                a+=1
+
+        LM_mean = np.mean(LM_data)
+        LM_stdev = np.std(LM_data)
+    
+        gc.collect() # control of garbage collection
+        gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
+    
+        InternalTempData = [LM_mean, LM_stdev]
+        print(InternalTempData)
+        return InternalTempData
 class Compass:
-    def __init__(self, uart_ch):
-        self.uart_ch=2
-        self.baudrate=4800
+    def __init__(self, uart_ch, BAUDRATE_COMPASS):
+        self.uart_ch=uart_ch
+        self.baudrate=BAUDRATE_COMPASS
 
-    def inicializar():
-        uart_ch=2
 
     def get_first_nbr_from_str(Compass_info):
         if not input_str and not isinstance(input_str, str):
@@ -239,17 +259,14 @@ class Compass:
             Compass_info = get_first_nbr_from_str(Compass_info)
             print(Compass_info)
         return Compass_info
-
-
 class CarbonDioxideProbe:
-    def __init__(self, uart_ch):
-        self.uart_ch = 1
-        self.baudrate = 19200
+    def __init__(self, uart_ch, BAUDRATE_PROBECO2):
+        self.uart_ch = uart_ch
+        self.baudrate = BAUDRATE_PROBECO2
     
-    def inicializar():
-        global interruptCounter, uart_ch
-        uart_ch=1
-        select_uart(uart_ch)
+    def inicializar(self):
+        global interruptCounter
+        select_uart(self.uart_ch)
         print("Inicializando probe de CO2")
         
         a=0
@@ -259,9 +276,11 @@ class CarbonDioxideProbe:
             uart.write("R\r\n") 
             if interruptCounter > 0:
                 interruptCounter = interruptCounter - 1
+                CarbonDioxideProbe_info=uart.readline()
+                print("co2 info: {}".format(CarbonDioxideProbe_info))
                 a+=1
     
-    def read():
+    def read(self, n_data):
         global uart, uart_ch, CarbonDioxideProbe_info, interruptCounter
         
         a=0
@@ -269,16 +288,16 @@ class CarbonDioxideProbe:
         concentracao_co2=[]
         temperatura_co2=[]
         
-        while a<60: # 60 amostras
+        while a < n_data: # 60 amostras
             
             if interruptCounter > 0:
-                print("Leitura {} de 60".format(a))
+                print("Leitura {} de {}".format(a, n_data))                
                 interruptCounter = interruptCounter - 1
                 
                 # uart.write(" 1050.7    24.5\r\n")
                                
                 CarbonDioxideProbe_info=uart.readline()
-                #print("co2 info: {}".format(CarbonDioxideProbe_info))
+                print("co2 info: {}".format(CarbonDioxideProbe_info))
                 if CarbonDioxideProbe_info != None:
                     #print("co2 info: {}".format(CarbonDioxideProbe_info))
                     numeros_str = CarbonDioxideProbe_info.split()
@@ -309,154 +328,142 @@ class CarbonDioxideProbe:
                 probeCO2Data = [concentracao_co2_mean, concentracao_co2_stdev, temperatura_co2_mean, temperatura_co2_stdev]   #List
     
         return probeCO2Data
+
+
+
+anemometro = anemometer(WS_in_min, WS_in_max, WS_out_min, WS_out_max, WD_in_min, WD_in_max, WD_out_min, WD_out_max) 
+LM35 = InternalTemperature(LM_in_min, LM_in_max, LM_out_min, LM_out_max)
+PROBE_CO2 = CarbonDioxideProbe(1, BAUDRATE_PROBECO2)
+
+
 #######################################################################################
 ############################# FINITE STATE MACHINE ####################################
-
-class State0:
+class State0: #OK
     def __init__(self):
-        self.name = '0'
+        self.state_index = '0'
 
     def transition(self, input_var): 
         if input_var == 0:
             return State0()
         elif input_var == 1:
-            return StateWait.wait()
+            return StateWait().wait()
         else:
             print('erro')
             return State0()
-        
-class StateWait:
+class StateWait: #OK
     def __init__(self):
-        self.name = '1'
-        
+        self.state_index = '1'
         
     def transition(self, input_var):
-
         if input_var == 1:
-            return StateWait.wait()
+            return StateWait().wait()
         elif input_var == 2:
-            return StateRead.read()
+            #print("wait => read ok")
+            return StateRead().read()
         else:
             print('erro')
             return State0()
         
-    def wait():
+    def wait(self):
         global input_var
         global interruptCounter
-        global totalInterruptsCounter
 
-        totalInterruptsCounter = 0
-        interruptCounter = 0
-        
+        a=0
         print("state: {}".format(input_var))
         print('going to sleep')
-        
-        while totalInterruptsCounter < 10:    #espera 10s para iniciar leituras
-            input_var=1
+
+        while a < 10: # 10 seguntos de envio para ler o sensor
+            # Envia o comando R para o probe de CO2 para iniciar a leitura
+ 
             if interruptCounter > 0:
                 interruptCounter = interruptCounter - 1
-                totalInterruptsCounter = totalInterruptsCounter + 1
-                
-        print("interrupt has occurred: "+ str(totalInterruptsCounter))     
-            #machine.enable_irq(state)
-            #print("interrupt has occurred: "+ str(totalInterruptsCounter))            
-        
-        totalInterruptsCounter = 0
-        
+                a+=1
+
         print('waking up')
         input_var=2
-        print("state: {}".format(input_var))
         return StateWait().transition(input_var)     
 
 class StateRead:
     def __init__(self):
-        self.name = '2'
+        self.state_index='2'
 
     def transition(self, input_var):
         if input_var == 2:
-            return StateRead.read()
+            return StateRead().read()
         elif input_var == 3:
-            return StateSend.send()
+            return StateSend().send()
         else:
             print('erro')
             return State0()
         
-    def read():
+    def read(self):
         global interruptCounter
         global totalInterruptsCounter
         global input_var
         global estacao_comma_separated
-        
-        #print("read: {}".format(input_var))
+
         
         if input_var == 2:
-            T_value = readChannel_1(ADS1115_COMP_0_GND)
-            H_value = readChannel_1(ADS1115_COMP_1_GND)
-            WS_value = readChannel_1(ADS1115_COMP_2_GND)  #random.uniform(0.0, 10.0)
+            #T_value = readChannel_1(ADS1115_COMP_0_GND)
+            #H_value = readChannel_1(ADS1115_COMP_1_GND)
+            #P_value = readChannel_2(ADS1115_COMP_3_GND)
+            #TH_data = TemperatureHumidityRead(T_value, H_value)
+            #pressure_data = barometerRead(P_value)
+            WS_value = readChannel_1(ADS1115_COMP_2_GND)  
             WD_value = readChannel_1(ADS1115_COMP_3_GND)
-            P_value = readChannel_2(ADS1115_COMP_3_GND)
             LM_value =  readChannel_2(ADS1115_COMP_0_GND)
         
-            TH_data = TemperatureHumidityRead(T_value, H_value)
-            wind_data = anemometerRead(WS_value, WD_value)
-            pressure_data = barometerRead(P_value)
-            LM_data=InternalTemperatureRead(LM_value)
+            #anemometro = anemometer(WS_in_min, WS_in_max, WS_out_min, WS_out_max, WD_in_min, WD_in_max, WD_out_min, WD_out_max)
+            wind_data = anemometro.read(WS_value, WD_value, n_data)
+            
+            #LM35 = InternalTemperature(LM_in_min, LM_in_max, LM_out_min, LM_out_max)
+            LM_data = LM35.read(LM_value, n_data)
         
             #uart_ch=2 #bussola
             #select_uart(uart_ch)
         
             #bussola_data = Compass.read(uart.read())
         
-        
-            #uart_ch=1 #probe co2
-            #select_uart(uart_ch)
-            CarbonDioxideProbe.inicializar()
-            co2_data = CarbonDioxideProbe.read()
+            #PROBE_CO2=CarbonDioxideProbe(uart_ch=1, BAUDRATE_PROBECO2)
+            PROBE_CO2.inicializar()
+            co2_data = PROBE_CO2.read(n_data)
             print(co2_data)
+
             #estacao = wind_data + TH_data + pressure_data + LM_data +co2_data + bussola_data
-            estacao = LM_data #+ co2_data 
+            estacao =  wind_data + LM_data + co2_data 
 
             estacao=str(estacao).strip('[]')   #transforma list em string retirando conchetes da msg
-            counterstr=str(totalInterruptsCounter)
-        
+
             estacao=[framesync,' '+estacao]              #coloca framesync no inicio da msg
             #estacao=[counterstr,framesync,estacao]        
             #print(estacao)
             estacao_comma_separated = ','.join(estacao)
-            #print(estacao_comma_separated)
+            print(estacao_comma_separated)
         
-            while totalInterruptsCounter < 60:    #lê 600 amostras
-                if interruptCounter > 0:
-                    interruptCounter = interruptCounter - 1
-                    totalInterruptsCounter = totalInterruptsCounter + 1
-                #print("read {} amostras ".format(totalInterruptsCounter))     
-        
-            print("interrupt has occurred: "+ str(totalInterruptsCounter))     
-            print('li tudo')
-        
-            totalInterruptsCounter = 0
             input_var=3
-            print("state: {}".format(input_var))
+        
+        print("state: {}".format(input_var))
+        return StateRead().transition(input_var)   
         
 
 class StateSend:
     def __init__(self):
-        self.name = '3'
+        self.state_index = '3'
 
     def transition(self, input_var):
         if input_var == 3:
-            return StateSend.send()
+            return StateSend().send()
         elif input_var == 4:
-            return StateErase.erase()
+            return StateErase().erase()
         else:
             print('erro')
             return State0()
         
-    def send():
+    def send(self):
         global input_var
         global estacao_comma_separated
         
-        file = open('teste.txt', 'a')
+        file = open('testeabril.txt', 'a')
         file.write(estacao_comma_separated)
         file.write("\n")
         file.close()
@@ -466,7 +473,7 @@ class StateSend:
     
 class StateErase:
     def __init__(self):
-        self.name = '4'
+        self.state_index = '4'
 
     def transition(self, input_var):
         if input_var == 4:
@@ -477,12 +484,11 @@ class StateErase:
             print('erro')
             return State0()
         
-    def erase():
+    def erase(self):
         global input_var
         P_data.clear()
         print("erase 1: {}".format(input_var))
         input_var=0
-        
         print("erase 2: {}".format(input_var))
         return StateErase().transition(input_var)
 
@@ -492,7 +498,7 @@ class StateErase:
 
 # Função principal do programa
 def main():
-    # Inicializando a máquina de estados com o estado 0
+    # Inicializando a máquina de estados com o estado A
     current_state = State0()
 
     while True:
@@ -504,8 +510,7 @@ def main():
 
         # Fazendo a transição de estado com base no input_var
         current_state = current_state.transition(input_var)
-        print("Estado atual:", current_state.name)
-        print("main: {}".format(input_var))
+        #print("Estado atual:", current_state.state_index)
 
 # Executando a função principal
 if __name__ == "__main__":
