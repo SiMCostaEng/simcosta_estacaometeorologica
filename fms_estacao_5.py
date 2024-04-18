@@ -54,13 +54,12 @@ LM_out_max = 150.0
 
 
 WS_data = []
-# print(type(WS_data)) 
 WD_data = []
 T_data = []
 H_data = []
 P_data = []
 LM_data = []
-
+co2_data=[]
  
 ADS1115_1_ADDRESS = 0x48   # PIN ADDR = GND
 ADS1115_2_ADDRESS = 0X49   # PIR ADDR = VCC
@@ -183,20 +182,23 @@ class anemometer:
         self.WD_out_min = WD_out_min
         self.WD_out_max = WD_out_max
 
-    def read(self, WS_value, WD_value, n_data):
+    def read(self, n_data):
         global interruptCounter
         a=0
+
         while a < n_data:
             if interruptCounter > 0:
+                WS_value=readChannel_2(ADS1115_COMP_2_GND)
+                WD_value=readChannel_2(ADS1115_COMP_1_GND)
                 print("Leitura {} de {}".format(a, n_data))
                 interruptCounter = interruptCounter - 1 
-                WS = (WS_value - self.WS_in_min) * (self.WS_out_max - self.WS_out_min) / (self.WS_in_max - self.WS_in_min) + self.WS_out_min
+                WS = (WS_value - self.WS_in_min) * (self.WS_out_max - self.WS_out_min) / (WS_in_max - self.WS_in_min) + self.WS_out_min
                 WS_data.append(WS)
-            
-                WD = (WD_value - self.WD_in_min) * (self.WD_out_max - self.WD_out_min) / (self.WD_in_max - self.WD_in_min) + self.WD_out_min
+                #print("ws data: {}".format(WS_data))
+                WD = (WD_value - self.WD_in_min) * (self.WD_out_max - self.WD_out_min) / (WD_in_max - self.WD_in_min) + self.WD_out_min
                 WD_data.append(WD)
+                #print("wd data: {}".format(WD_data))
                 a+=1
-        
         WS_mean = np.mean(WS_data)
         WS_stdev = np.std(WS_data)
         WD_mean = np.mean(WD_data)
@@ -206,6 +208,7 @@ class anemometer:
         gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
     
         anemometerData = [WS_mean, WS_stdev, WD_mean, WD_stdev]   #List
+        print(anemometerData)
         return anemometerData
 class InternalTemperature:
     def __init__(self, LM_in_min, LM_in_max, LM_out_min, LM_out_max):
@@ -214,14 +217,16 @@ class InternalTemperature:
         self.LM_out_min=LM_out_min
         self.LM_out_max=LM_out_max
         
-    def read(self, LM_value, n_data):
+    def read(self, n_data):
         global interruptCounter
         a=0
         while a < n_data: # 60 amostras
             if interruptCounter > 0:
                 print("Leitura {} de {}".format(a, n_data))
                 interruptCounter = interruptCounter - 1
+                LM_value =  readChannel_2(ADS1115_COMP_0_GND)
                 LM = (LM_value - self.LM_in_min) * (self.LM_out_max - self.LM_out_min) / (self.LM_in_max - self.LM_in_min) + self.LM_out_min
+                print("leitura temperatura int {}".format(LM))
                 LM_data.append(LM)
                 a+=1
 
@@ -329,12 +334,10 @@ class CarbonDioxideProbe:
     
         return probeCO2Data
 
-
-
+# criando os sensores 
 anemometro = anemometer(WS_in_min, WS_in_max, WS_out_min, WS_out_max, WD_in_min, WD_in_max, WD_out_min, WD_out_max) 
 LM35 = InternalTemperature(LM_in_min, LM_in_max, LM_out_min, LM_out_max)
 PROBE_CO2 = CarbonDioxideProbe(1, BAUDRATE_PROBECO2)
-
 
 #######################################################################################
 ############################# FINITE STATE MACHINE ####################################
@@ -382,7 +385,6 @@ class StateWait: #OK
         print('waking up')
         input_var=2
         return StateWait().transition(input_var)     
-
 class StateRead:
     def __init__(self):
         self.state_index='2'
@@ -398,7 +400,6 @@ class StateRead:
         
     def read(self):
         global interruptCounter
-        global totalInterruptsCounter
         global input_var
         global estacao_comma_separated
 
@@ -409,22 +410,21 @@ class StateRead:
             #P_value = readChannel_2(ADS1115_COMP_3_GND)
             #TH_data = TemperatureHumidityRead(T_value, H_value)
             #pressure_data = barometerRead(P_value)
-            WS_value = readChannel_1(ADS1115_COMP_2_GND)  
-            WD_value = readChannel_1(ADS1115_COMP_3_GND)
-            LM_value =  readChannel_2(ADS1115_COMP_0_GND)
+            #WS_value = readChannel_1(ADS1115_COMP_2_GND)
+            #WD_value = readChannel_1(ADS1115_COMP_3_GND)
+
         
             #anemometro = anemometer(WS_in_min, WS_in_max, WS_out_min, WS_out_max, WD_in_min, WD_in_max, WD_out_min, WD_out_max)
-            wind_data = anemometro.read(WS_value, WD_value, n_data)
-            
+            wind_data = anemometro.read(n_data)
             #LM35 = InternalTemperature(LM_in_min, LM_in_max, LM_out_min, LM_out_max)
-            LM_data = LM35.read(LM_value, n_data)
+            LM_data = LM35.read(n_data)
         
             #uart_ch=2 #bussola
             #select_uart(uart_ch)
         
             #bussola_data = Compass.read(uart.read())
         
-            #PROBE_CO2=CarbonDioxideProbe(uart_ch=1, BAUDRATE_PROBECO2)
+            
             PROBE_CO2.inicializar()
             co2_data = PROBE_CO2.read(n_data)
             print(co2_data)
@@ -444,8 +444,6 @@ class StateRead:
         
         print("state: {}".format(input_var))
         return StateRead().transition(input_var)   
-        
-
 class StateSend:
     def __init__(self):
         self.state_index = '3'
@@ -469,8 +467,7 @@ class StateSend:
         file.close()
         print("send: {}".format(input_var))
         input_var=4
-        return StateSend().transition(input_var)
-    
+        return StateSend().transition(input_var) 
 class StateErase:
     def __init__(self):
         self.state_index = '4'
@@ -486,12 +483,17 @@ class StateErase:
         
     def erase(self):
         global input_var
+        WS_data.clear()
+        WD_data.clear()
+        T_data.clear()
+        H_data.clear()
         P_data.clear()
+        LM_data.clear()
+        co2_data.clear()
         print("erase 1: {}".format(input_var))
         input_var=0
         print("erase 2: {}".format(input_var))
         return StateErase().transition(input_var)
-
 
 #######################################################################################
 
