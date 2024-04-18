@@ -94,7 +94,8 @@ def handlerInterrupt(timer):
     interruptCounter+=1
     #print("interruptcounter: {}".format(interruptCounter))
 timer.init(period=1000, mode=machine.Timer.PERIODIC, callback=handlerInterrupt) #period=1000, ou seja, a interrupção acontece uma vez por segundo; mode=machine.Timer.PERIODIC pois acontece em loop, a cada 1000 ms; callback=handlerInterrupt ou seja, a função que vai acontecer quando a interrupção for chamada
-    
+
+"""  
 def readChannel_1(channel):
     adc_1.setCompareChannels(channel)
     adc_1.startSingleMeasurement()
@@ -109,6 +110,16 @@ def readChannel_2(channel):
     while adc_2.isBusy():
         pass
     voltage = adc_2.getResult_V()
+    return voltage
+
+"""
+
+def readChannel(adc, channel):
+    adc.setCompareChannels(channel)
+    adc.startSingleMeasurement()
+    while adc.isBusy():
+        pass
+    voltage = adc.getResult_V()
     return voltage
 
 def select_uart(uart_ch):
@@ -136,24 +147,44 @@ def select_uart(uart_ch):
         CH_A_MUX.value(1)
         CH_B_MUX.value(1)
 
-def TemperatureHumidityRead(T_value, H_value):
-    T = (T_value - T_in_min) * (T_out_max - T_out_min) / (T_in_max - T_in_min) + T_out_min
-    T_data.append(T)
-    # print(len(WS_data))
-    T_mean = np.mean(T_data)
-    T_stdev = np.std(T_data)
+class TemperatureHumidityProbe:
+    def __init__(self, T_in_min, T_in_max, T_out_min, T_out_max, H_in_min, H_in_max, H_out_min,H_out_max):
+        self.T_in_min = T_in_min
+        self.T_in_max = T_in_max
+        self.T_out_min = T_out_min
+        self.T_out_max = T_out_max
+        self.H_in_min = H_in_min
+        self.H_in_max = H_in_max
+        self.H_out_min = H_out_min
+        self.H_out_max = H_out_max
+
+    def read(self, n_data, ADC_T, PORT_T, ADC_H, PORT_H):
+        global interruptCounter
+        a=0
+        while a < n_data:
+            if interruptCounter > 0:
+                print('Leitura {a} de {n_data}}'.format(a, n_data))
+                interruptCounter = interruptCounter - 1 
+                T_value =  readChannel(ADC_T, PORT_T)
+                T = (T_value - self.T_in_min) * (self.T_out_max - self.T_out_min) / (self.T_in_max - self.T_in_min) + self.T_out_min
+                T_data.append(T)
+                
+                H_value =  readChannel(ADC_H, PORT_H)
+                H = (H_value - self.H_in_min) * (self.H_out_max - self.H_out_min) / (self.H_in_max - self.H_in_min) + self.H_out_min
+                H_data.append(H)
+                a+=1
+        
+        T_mean = np.mean(T_data)
+        T_stdev = np.std(T_data)
+        H_mean = np.mean(H_data)
+        H_stdev = np.std(H_data)
     
-    H = (H_value - H_in_min) * (H_out_max - H_out_min) / (H_in_max - H_in_min) + H_out_min
-    H_data.append(H)
-    H_mean = np.mean(H_data)
-    H_stdev = np.std(H_data)
+        gc.collect() # control of garbage collection
+        gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
     
-    gc.collect() # control of garbage collection
-    gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
-    
-    probeTHRData = [T_mean, T_stdev, H_mean, H_stdev]
-    #probeData = str(probeData)
-    return probeTHRData
+        probeTHRData = [T_mean, T_stdev, H_mean, H_stdev]
+        #probeData = str(probeData)
+        return probeTHRData
 
 def barometerRead(P_value):
     P = (P_value - P_in_min) * (P_out_max - P_out_min) / (P_in_max - P_in_min) + P_out_min
@@ -182,14 +213,14 @@ class anemometer:
         self.WD_out_min = WD_out_min
         self.WD_out_max = WD_out_max
 
-    def read(self, n_data):
+    def read(self, n_data, ADC_WS, PORT_WS, ADC_WD, PORT_WD):
         global interruptCounter
         a=0
 
         while a < n_data:
             if interruptCounter > 0:
-                WS_value=readChannel_2(ADS1115_COMP_2_GND)
-                WD_value=readChannel_2(ADS1115_COMP_1_GND)
+                WS_value=readChannel(ADC_WS, PORT_WS)
+                WD_value=readChannel(ADC_WD, PORT_WD)
                 print("Leitura {} de {}".format(a, n_data))
                 interruptCounter = interruptCounter - 1 
                 WS = (WS_value - self.WS_in_min) * (self.WS_out_max - self.WS_out_min) / (WS_in_max - self.WS_in_min) + self.WS_out_min
@@ -210,6 +241,7 @@ class anemometer:
         anemometerData = [WS_mean, WS_stdev, WD_mean, WD_stdev]   #List
         print(anemometerData)
         return anemometerData
+
 class InternalTemperature:
     def __init__(self, LM_in_min, LM_in_max, LM_out_min, LM_out_max):
         self.LM_in_min=LM_in_min
@@ -217,14 +249,14 @@ class InternalTemperature:
         self.LM_out_min=LM_out_min
         self.LM_out_max=LM_out_max
         
-    def read(self, n_data):
+    def read(self, n_data, ADC, PORT):
         global interruptCounter
         a=0
         while a < n_data: # 60 amostras
             if interruptCounter > 0:
                 print("Leitura {} de {}".format(a, n_data))
                 interruptCounter = interruptCounter - 1
-                LM_value =  readChannel_2(ADS1115_COMP_0_GND)
+                LM_value =  readChannel(ADC, PORT)
                 LM = (LM_value - self.LM_in_min) * (self.LM_out_max - self.LM_out_min) / (self.LM_in_max - self.LM_in_min) + self.LM_out_min
                 print("leitura temperatura int {}".format(LM))
                 LM_data.append(LM)
@@ -414,10 +446,8 @@ class StateRead:
             #WD_value = readChannel_1(ADS1115_COMP_3_GND)
 
         
-            #anemometro = anemometer(WS_in_min, WS_in_max, WS_out_min, WS_out_max, WD_in_min, WD_in_max, WD_out_min, WD_out_max)
-            wind_data = anemometro.read(n_data)
-            #LM35 = InternalTemperature(LM_in_min, LM_in_max, LM_out_min, LM_out_max)
-            LM_data = LM35.read(n_data)
+            wind_data = anemometro.read(n_data, adc_2, ADS1115_COMP_2_GND, adc_2, ADS1115_COMP_1_GND)
+            LM_data = LM35.read(n_data, adc_2, ADS1115_COMP_0_GND)
         
             #uart_ch=2 #bussola
             #select_uart(uart_ch)
@@ -430,7 +460,7 @@ class StateRead:
             print(co2_data)
 
             #estacao = wind_data + TH_data + pressure_data + LM_data +co2_data + bussola_data
-            estacao =  wind_data + LM_data + co2_data 
+            estacao =  wind_data  + LM_data + co2_data 
 
             estacao=str(estacao).strip('[]')   #transforma list em string retirando conchetes da msg
 
