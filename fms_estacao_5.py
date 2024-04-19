@@ -32,12 +32,12 @@ WD_out_min = 0.0     #WIND DIRECTION RANGE: 0 to 360
 WD_out_max = 360.0
 
 T_in_min = 0
-T_in_max = 3413
+T_in_max = 1.0
 T_out_min = -40     #range temperatura: -40°C à +60°C
 T_out_max = 60
  
 H_in_min = 0
-H_in_max = 3413
+H_in_max = 1.0
 H_out_min = 0       #range humidade: 0-100%
 H_out_max = 100
 
@@ -163,7 +163,7 @@ class TemperatureHumidityProbe:
         a=0
         while a < n_data:
             if interruptCounter > 0:
-                print('Leitura {a} de {n_data}}'.format(a, n_data))
+                print('Leitura {} de {}'.format(a, n_data))
                 interruptCounter = interruptCounter - 1 
                 T_value =  readChannel(ADC_T, PORT_T)
                 T = (T_value - self.T_in_min) * (self.T_out_max - self.T_out_min) / (self.T_in_max - self.T_in_min) + self.T_out_min
@@ -186,21 +186,36 @@ class TemperatureHumidityProbe:
         #probeData = str(probeData)
         return probeTHRData
 
-def barometerRead(P_value):
-    P = (P_value - P_in_min) * (P_out_max - P_out_min) / (P_in_max - P_in_min) + P_out_min
-    #print(P)
-    P_data.append(P)
-    #print(P_data)
-#     print(len(WS_data))
-    P_mean = np.mean(P_data)
-    P_stdev = np.std(P_data)
-  
-    gc.collect() # control of garbage collection
-    gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
+
+
+class Barometer:
+    def __init__(self, P_in_min, P_in_max, P_out_min, P_out_max):
+        self.P_in_min = P_in_min
+        self.P_in_max = P_in_max
+        self.P_out_min = P_out_min
+        self.P_out_max = P_out_max
+
+    def read(self, n_data, ADC_P, PORT_P):
+        global interruptCounter
+        a=0
+        while a < n_data:
+            if interruptCounter > 0:
+                print('Leitura {} de {}'.format(a, n_data))
+                interruptCounter = interruptCounter - 1 
+                P_value =  readChannel(ADC_P, PORT_P)
+                P = (P_value - P_in_min) * (P_out_max - P_out_min) / (P_in_max - P_in_min) + P_out_min
+                P_data.append(P)
+                
+                a+=1
+            
+            P_mean = np.mean(P_data)
+            P_stdev = np.std(P_data)
+        
+        gc.collect() # control of garbage collection
+        gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
     
-    barometerData = [P_mean, P_stdev]   #List
-    
-    return barometerData
+        barometerData = [P_mean, P_stdev]   #List
+        return barometerData
 
 class anemometer: 
     def __init__(self, WS_in_min, WS_in_max, WS_out_min, WS_out_max, WD_in_min, WD_in_max, WD_out_min, WD_out_max):
@@ -271,6 +286,7 @@ class InternalTemperature:
         InternalTempData = [LM_mean, LM_stdev]
         print(InternalTempData)
         return InternalTempData
+    
 class Compass:
     def __init__(self, uart_ch, BAUDRATE_COMPASS):
         self.uart_ch=uart_ch
@@ -370,6 +386,8 @@ class CarbonDioxideProbe:
 anemometro = anemometer(WS_in_min, WS_in_max, WS_out_min, WS_out_max, WD_in_min, WD_in_max, WD_out_min, WD_out_max) 
 LM35 = InternalTemperature(LM_in_min, LM_in_max, LM_out_min, LM_out_max)
 PROBE_CO2 = CarbonDioxideProbe(1, BAUDRATE_PROBECO2)
+probe_thr = TemperatureHumidityProbe(T_in_min, T_in_max, T_out_min, T_out_max, H_in_min, H_in_max, H_out_min, H_out_max)
+barometro = Barometer(P_in_min, P_in_max, P_out_min, P_out_max)
 
 #######################################################################################
 ############################# FINITE STATE MACHINE ####################################
@@ -444,11 +462,12 @@ class StateRead:
             #pressure_data = barometerRead(P_value)
             #WS_value = readChannel_1(ADS1115_COMP_2_GND)
             #WD_value = readChannel_1(ADS1115_COMP_3_GND)
-
-        
+            pressure_data = barometro.read(n_data, adc_2, ADS1115_COMP_3_GND)
+            print(pressure_data)
             wind_data = anemometro.read(n_data, adc_2, ADS1115_COMP_2_GND, adc_2, ADS1115_COMP_1_GND)
             LM_data = LM35.read(n_data, adc_2, ADS1115_COMP_0_GND)
-        
+            probe_thr_data = probe_thr.read(n_data, adc_1, ADS1115_COMP_0_GND, adc_1, ADS1115_COMP_1_GND)
+            print(probe_thr_data)
             #uart_ch=2 #bussola
             #select_uart(uart_ch)
         
@@ -460,7 +479,7 @@ class StateRead:
             print(co2_data)
 
             #estacao = wind_data + TH_data + pressure_data + LM_data +co2_data + bussola_data
-            estacao =  wind_data  + LM_data + co2_data 
+            estacao =  wind_data  + LM_data + co2_data +  pressure_data + probe_thr_data 
 
             estacao=str(estacao).strip('[]')   #transforma list em string retirando conchetes da msg
 
