@@ -167,10 +167,13 @@ class TemperatureHumidityProbe:
                 interruptCounter = interruptCounter - 1 
                 T_value =  readChannel(ADC_T, PORT_T)
                 T = (T_value - self.T_in_min) * (self.T_out_max - self.T_out_min) / (self.T_in_max - self.T_in_min) + self.T_out_min
+                
+                print("T: {}".format(T))
                 T_data.append(T)
                 
                 H_value =  readChannel(ADC_H, PORT_H)
                 H = (H_value - self.H_in_min) * (self.H_out_max - self.H_out_min) / (self.H_in_max - self.H_in_min) + self.H_out_min
+                print("H: {}".format(H))
                 H_data.append(H)
                 a+=1
         
@@ -293,7 +296,7 @@ class Compass:
         self.baudrate=BAUDRATE_COMPASS
 
 
-    def get_first_nbr_from_str(Compass_info):
+    def get_first_nbr_from_str(self, Compass_info):
         if not input_str and not isinstance(input_str, str):
             return 0
         out_number = ''
@@ -305,7 +308,7 @@ class Compass:
         Compass_data=float(out_number)
         return Compass_data
 
-    def read():
+    def read(self):
         global uart, a, uart_ch, Compass_info
         if Compass_info != None:
             Compass_info=str(Compass_info)
@@ -324,7 +327,7 @@ class CarbonDioxideProbe:
         
         a=0
 
-        while a < 10: # 10 seguntos de envio para ler o sensor
+        while a < 15: # 10 seguntos de envio para ler o sensor
             # Envia o comando R para o probe de CO2 para iniciar a leitura
             uart.write("R\r\n") 
             if interruptCounter > 0:
@@ -462,6 +465,14 @@ class StateRead:
             #pressure_data = barometerRead(P_value)
             #WS_value = readChannel_1(ADS1115_COMP_2_GND)
             #WD_value = readChannel_1(ADS1115_COMP_3_GND)
+
+           # PROBE_CO2.inicializar()
+            #co2_data = PROBE_CO2.read(n_data)
+            #print(co2_data)
+
+            probe_thr_data = probe_thr.read(n_data, adc_1, ADS1115_COMP_0_GND, adc_1, ADS1115_COMP_1_GND)
+            print(probe_thr_data)
+            
             pressure_data = barometro.read(n_data, adc_2, ADS1115_COMP_3_GND)
             print(pressure_data)
             wind_data = anemometro.read(n_data, adc_2, ADS1115_COMP_2_GND, adc_2, ADS1115_COMP_1_GND)
@@ -473,10 +484,6 @@ class StateRead:
         
             #bussola_data = Compass.read(uart.read())
         
-            
-            PROBE_CO2.inicializar()
-            co2_data = PROBE_CO2.read(n_data)
-            print(co2_data)
 
             #estacao = wind_data + TH_data + pressure_data + LM_data +co2_data + bussola_data
             estacao =  wind_data  + LM_data + co2_data +  pressure_data + probe_thr_data 
