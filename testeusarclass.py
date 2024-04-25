@@ -64,7 +64,6 @@ class SerialSensor:
         self.baudrate=BAUDRATE_COMPASS
         select_uart(self.uart_ch)
 
-
     def write(self, msg):
         global interruptCounter
         a=0
@@ -103,32 +102,25 @@ class SerialSensor:
         uart.write("S\r\n")
 
         # Inicializar listas para armazenar os valores
-        vetor1 = []
-        vetor2 = []
+        means=[]
+        stds=[]
 
         # Iterar sobre cada linha e coluna da matriz
-        for i in range(n_data):
-            for j in range(n_val):
-                if j == 0:
-                    vetor1.append(matrix[i][j])
-                elif j == 1:
-                    vetor2.append(matrix[i][j])
-    
-        # Imprimir vetores
-        print("Vetor 1:", vetor1)
-        print("Vetor 2:", vetor2)
-        
-        vetor1_mean = np.mean(vetor1)
-        vetor1_stdev = np.std(vetor1)
-        vetor2_mean = np.mean(vetor2)
-        vetor2_stdev = np.std(vetor2)
-                
+        for i in range(n_val):
+            column_data = [row[i] for row in matrix]
+            means.append(np.mean(column_data))
+            stds.append(np.std(column_data))
+
+        #preenche vetor de resultado com média_1, std_1, média_2, std_2,...
+        resultado=[]
+        for i in range(n_val):
+            resultado.append(means[i])
+            resultado.append(stds[i])  
+
         gc.collect() # control of garbage collection
         gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
-    
-        resultado = [vetor1_mean, vetor1_stdev, vetor2_mean, vetor2_stdev]   #List
 
-        return resultado #probeCO2Data
+        return resultado
     
 sensor=SerialSensor(1, 19200)
 # Função principal do programa
