@@ -43,7 +43,7 @@ def select_uart(uart_ch):
     elif uart_ch == 1:
         #uart = UART(2, 19200)
         BAUDRATE=BAUDRATE_PROBECO2
-        uart.write("i'm in..............")
+        #uart.write("i'm in..............")
         CH_A_MUX.value(1)
         CH_B_MUX.value(0)
                 
@@ -59,9 +59,9 @@ def select_uart(uart_ch):
 
 
 class SerialSensor:
-    def __init__(self, uart_ch, BAUDRATE_COMPASS):
+    def __init__(self, uart_ch, BAUDRATE):
         self.uart_ch=uart_ch
-        self.baudrate=BAUDRATE_COMPASS
+        self.baudrate=BAUDRATE
         select_uart(self.uart_ch)
 
     def write(self, msg):

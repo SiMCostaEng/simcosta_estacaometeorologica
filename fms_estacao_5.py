@@ -81,12 +81,11 @@ input_var = 0
 interruptCounter=0
 timer=machine.Timer(0)
 
-totalInterruptsCounter=0
 
 a=0
 state_name='0'
 n_data = 60    # quantidade de medidas a ser adquirida
-
+n_var_co2=2
 
 
 def handlerInterrupt(timer):
@@ -95,24 +94,6 @@ def handlerInterrupt(timer):
     #print("interruptcounter: {}".format(interruptCounter))
 timer.init(period=1000, mode=machine.Timer.PERIODIC, callback=handlerInterrupt) #period=1000, ou seja, a interrupção acontece uma vez por segundo; mode=machine.Timer.PERIODIC pois acontece em loop, a cada 1000 ms; callback=handlerInterrupt ou seja, a função que vai acontecer quando a interrupção for chamada
 
-"""  
-def readChannel_1(channel):
-    adc_1.setCompareChannels(channel)
-    adc_1.startSingleMeasurement()
-    while adc_1.isBusy():
-        pass
-    voltage = adc_1.getResult_V()
-    return voltage
-
-def readChannel_2(channel):
-    adc_2.setCompareChannels(channel)
-    adc_2.startSingleMeasurement()
-    while adc_2.isBusy():
-        pass
-    voltage = adc_2.getResult_V()
-    return voltage
-
-"""
 
 def readChannel(adc, channel):
     adc.setCompareChannels(channel)
@@ -168,12 +149,12 @@ class TemperatureHumidityProbe:
                 T_value =  readChannel(ADC_T, PORT_T)
                 T = (T_value - self.T_in_min) * (self.T_out_max - self.T_out_min) / (self.T_in_max - self.T_in_min) + self.T_out_min
                 
-                print("T: {}".format(T))
+                #print("T: {}".format(T))
                 T_data.append(T)
                 
                 H_value =  readChannel(ADC_H, PORT_H)
                 H = (H_value - self.H_in_min) * (self.H_out_max - self.H_out_min) / (self.H_in_max - self.H_in_min) + self.H_out_min
-                print("H: {}".format(H))
+                #print("H: {}".format(H))
                 H_data.append(H)
                 a+=1
         
@@ -188,8 +169,6 @@ class TemperatureHumidityProbe:
         probeTHRData = [T_mean, T_stdev, H_mean, H_stdev]
         #probeData = str(probeData)
         return probeTHRData
-
-
 
 class Barometer:
     def __init__(self, P_in_min, P_in_max, P_out_min, P_out_max):
@@ -315,80 +294,100 @@ class Compass:
             Compass_info = get_first_nbr_from_str(Compass_info)
             print(Compass_info)
         return Compass_info
-class CarbonDioxideProbe:
-    def __init__(self, uart_ch, BAUDRATE_PROBECO2):
-        self.uart_ch = uart_ch
-        self.baudrate = BAUDRATE_PROBECO2
-    
-    def inicializar(self):
-        global interruptCounter
-        select_uart(self.uart_ch)
-        print("Inicializando probe de CO2")
-        
-        a=0
 
+class SerialSensor:
+    def __init__(self, uart_ch, BAUDRATE):
+        self.uart_ch=uart_ch
+        self.baudrate=BAUDRATE
+        select_uart(self.uart_ch)
+
+    def init(self, msg):
+        global interruptCounter
+        a=0
         while a < 15: # 10 seguntos de envio para ler o sensor
             # Envia o comando R para o probe de CO2 para iniciar a leitura
-            uart.write("R\r\n") 
+            uart.write(msg) 
             if interruptCounter > 0:
                 interruptCounter = interruptCounter - 1
-                CarbonDioxideProbe_info=uart.readline()
-                print("co2 info: {}".format(CarbonDioxideProbe_info))
+                data=uart.readline()
                 a+=1
-    
-    def read(self, n_data):
-        global uart, uart_ch, CarbonDioxideProbe_info, interruptCounter
-        
+
+    def read(self, n_data, n_val):
+        global interruptCounter
+        print(type(n_val))
         a=0
-        dados_float=[]
-        concentracao_co2=[]
-        temperatura_co2=[]
-        
+        matrix=[]
         while a < n_data: # 60 amostras
-            
             if interruptCounter > 0:
                 print("Leitura {} de {}".format(a, n_data))                
                 interruptCounter = interruptCounter - 1
                 
-                # uart.write(" 1050.7    24.5\r\n")
-                               
-                CarbonDioxideProbe_info=uart.readline()
-                print("co2 info: {}".format(CarbonDioxideProbe_info))
-                if CarbonDioxideProbe_info != None:
-                    #print("co2 info: {}".format(CarbonDioxideProbe_info))
-                    numeros_str = CarbonDioxideProbe_info.split()
-                    # Converter os números para float e armazená-los na lista
-                    for numero in numeros_str:
-                        numero = numero.strip()  # Remover espaços em branco da string antes de converter
-                        if numero:  # Verificar se a string não está vazia após remover os espaços em branco
-                            dados_float.append(float(numero))
-                        
-                    # Extrair os números float
-                    concentracao_co2.append(dados_float[0])
-                    temperatura_co2.append(dados_float[1])
-                        
-                    dados_float=[]
+                data=uart.readline()
+                #print("Serial sensor read: {}".format(data))
+                #print(type(data))
+                
+                if data is not None:
+                    data_str = data.decode().strip()  # Strip whitespace
+                    print(data_str)
+                    if data_str:  # Check if the string is not empty
+                        x = data_str.split()
+                        size = sum(1 for _ in x)
+ 
+                        if size == n_val:  # Check if the split result has the expected length
+                            try:
+                                x_floats = [float(valor) for valor in x]
+                                matrix.append(x_floats)
+                                a += 1
+                            except ValueError as e:
+                                print("Error converting data to float:", e)
+                        else:
+                            print("Unexpected number of values in data:", x)
+                    else:
+                        print("Empty data received")
+
+        # Envia o comando S para o probe de CO2 para finalizar a leitura
+        uart.write("S\r\n")
+
+        # Inicializar listas para armazenar os valores
+        means=[]
+        stds=[]
+
+        # Iterar sobre cada linha e coluna da matriz
+        for i in range(n_val):
+            column_data = [row[i] for row in matrix]
+            means.append(np.mean(column_data))
+            stds.append(np.std(column_data))
+
+        #preenche vetor de resultado com média_1, std_1, média_2, std_2,...
+        resultado=[]
+        for i in range(n_val):
+            resultado.append(means[i])
+            resultado.append(stds[i])  
+
+        gc.collect() # control of garbage collection
+        gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
+
+        return resultado
+
+    def send(self, data):
+        global interruptCounter
+        a=0
+        while a < 10: # 5 seguntos de envio 
+            uart.write(data) 
+            print(data)
+            if interruptCounter > 0:
+                interruptCounter = interruptCounter - 1
                 a+=1
 
-                # Envia o comando S para o probe de CO2 para finalizar a leitura
-                uart.write("S\r\n")
+######################################################################################
 
-                concentracao_co2_mean = np.mean(concentracao_co2)
-                concentracao_co2_stdev = np.std(concentracao_co2)
-                temperatura_co2_mean = np.mean(temperatura_co2)
-                temperatura_co2_stdev = np.std(temperatura_co2)
-                
-                gc.collect() # control of garbage collection
-                gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
-    
-                probeCO2Data = [concentracao_co2_mean, concentracao_co2_stdev, temperatura_co2_mean, temperatura_co2_stdev]   #List
-    
-        return probeCO2Data
+#criando os sensores seriais + storx
+  
+ProbeCO2 = SerialSensor(1, BAUDRATE_PROBECO2)
 
-# criando os sensores 
+# criando os sensores analogicos
 anemometro = anemometer(WS_in_min, WS_in_max, WS_out_min, WS_out_max, WD_in_min, WD_in_max, WD_out_min, WD_out_max) 
 LM35 = InternalTemperature(LM_in_min, LM_in_max, LM_out_min, LM_out_max)
-PROBE_CO2 = CarbonDioxideProbe(1, BAUDRATE_PROBECO2)
 probe_thr = TemperatureHumidityProbe(T_in_min, T_in_max, T_out_min, T_out_max, H_in_min, H_in_max, H_out_min, H_out_max)
 barometro = Barometer(P_in_min, P_in_max, P_out_min, P_out_max)
 
@@ -470,15 +469,20 @@ class StateRead:
             #co2_data = PROBE_CO2.read(n_data)
             #print(co2_data)
 
-            probe_thr_data = probe_thr.read(n_data, adc_1, ADS1115_COMP_0_GND, adc_1, ADS1115_COMP_1_GND)
-            print(probe_thr_data)
+            ProbeCO2.init("R\r\n")
+            co2_data = ProbeCO2.read(n_data, n_var_co2)
+            print(co2_data)
             
             pressure_data = barometro.read(n_data, adc_2, ADS1115_COMP_3_GND)
             print(pressure_data)
+
             wind_data = anemometro.read(n_data, adc_2, ADS1115_COMP_2_GND, adc_2, ADS1115_COMP_1_GND)
+
             LM_data = LM35.read(n_data, adc_2, ADS1115_COMP_0_GND)
+
             probe_thr_data = probe_thr.read(n_data, adc_1, ADS1115_COMP_0_GND, adc_1, ADS1115_COMP_1_GND)
             print(probe_thr_data)
+
             #uart_ch=2 #bussola
             #select_uart(uart_ch)
         
@@ -500,6 +504,7 @@ class StateRead:
         
         print("state: {}".format(input_var))
         return StateRead().transition(input_var)   
+    
 class StateSend:
     def __init__(self):
         self.state_index = '3'
@@ -516,7 +521,12 @@ class StateSend:
     def send(self):
         global input_var
         global estacao_comma_separated
+        STORX = SerialSensor(0, BAUDRATE_STORX)  
         
+        STORX.init("R\r\n")
+        STORX.send(estacao_comma_separated)
+
+
         file = open('testeabril.txt', 'a')
         file.write(estacao_comma_separated)
         file.write("\n")
