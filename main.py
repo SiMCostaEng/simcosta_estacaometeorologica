@@ -12,10 +12,12 @@ CH_A_MUX = Pin(15, mode=Pin.OUT, value=0)
 CH_B_MUX  = Pin(4, mode=Pin.OUT, value=0)
 
 BAUDRATE = 19200
-#BAUDRATE_STORX = 19200
-#BAUDRATE_COMPASS = 4800
-#BAUDRATE_PROBECO2 = 19200
+BAUDRATE_STORX = 19200
+BAUDRATE_COMPASS = 4800
+BAUDRATE_PBCO2 = 19200
 
+uart_ch_pbco2 = 1
+uart_ch_storx = 0
 
 uart_ch = 0
 uart = UART(2, BAUDRATE) #trocar uart no esquemático para a UART 2. A UART 0 é utilizada como UART DOWNLOAD
@@ -109,14 +111,14 @@ def select_uart(uart_ch, BAUDRATE):
     if uart_ch == 0:
         #BAUDRATE=BAUDRATE_STORX
         uart = UART(2, BAUDRATE)
-        print(BAUDRATE)
+        #print(BAUDRATE)
         CH_A_MUX.value(0)
         CH_B_MUX.value(0)
 
     elif uart_ch == 1:
-        #BAUDRATE=BAUDRATE_PROBECO2
+        #BAUDRATE=BAUDRATE_PBCO2
         uart = UART(2, BAUDRATE)
-        print(BAUDRATE)
+        #print(BAUDRATE)
         CH_A_MUX.value(1)
         CH_B_MUX.value(0)
                 
@@ -146,7 +148,7 @@ class TemperatureHumidityProbe:
         a=0
         while a < n_data:
             if interruptCounter > 0:
-                print('Leitura {} de {}'.format(a, n_data))
+                #print('Leitura {} de {}'.format(a, n_data))
                 interruptCounter = interruptCounter - 1 
                 T_value =  readChannel(ADC_T, PORT_T)
                 T = (T_value - self.T_in_min) * (self.T_out_max - self.T_out_min) / (self.T_in_max - self.T_in_min) + self.T_out_min
@@ -169,7 +171,7 @@ class TemperatureHumidityProbe:
         gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
     
         probeTHRData = [T_mean, T_stdev, H_mean, H_stdev]
-        #probeData = str(probeData)
+        probeData = str(probeData)
         return probeTHRData
 
 class Barometer:
@@ -184,7 +186,7 @@ class Barometer:
         a=0
         while a < n_data:
             if interruptCounter > 0:
-                print('Leitura {} de {}'.format(a, n_data))
+                #print('Leitura {} de {}'.format(a, n_data))
                 interruptCounter = interruptCounter - 1 
                 P_value =  readChannel(ADC_P, PORT_P)
                 P = (P_value - P_in_min) * (P_out_max - P_out_min) / (P_in_max - P_in_min) + P_out_min
@@ -199,6 +201,7 @@ class Barometer:
         gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
     
         barometerData = [P_mean, P_stdev]   #List
+        print(barometerData)
         return barometerData
 
 class anemometer: 
@@ -220,7 +223,7 @@ class anemometer:
             if interruptCounter > 0:
                 WS_value=readChannel(ADC_WS, PORT_WS)
                 WD_value=readChannel(ADC_WD, PORT_WD)
-                print("Leitura {} de {}".format(a, n_data))
+                #print("Leitura {} de {}".format(a, n_data))
                 interruptCounter = interruptCounter - 1 
                 WS = (WS_value - self.WS_in_min) * (self.WS_out_max - self.WS_out_min) / (WS_in_max - self.WS_in_min) + self.WS_out_min
                 WS_data.append(WS)
@@ -253,11 +256,11 @@ class InternalTemperature:
         a=0
         while a < n_data: # 60 amostras
             if interruptCounter > 0:
-                print("Leitura {} de {}".format(a, n_data))
+                #print("Leitura {} de {}".format(a, n_data))
                 interruptCounter = interruptCounter - 1
                 LM_value =  readChannel(ADC, PORT)
                 LM = (LM_value - self.LM_in_min) * (self.LM_out_max - self.LM_out_min) / (self.LM_in_max - self.LM_in_min) + self.LM_out_min
-                print("leitura temperatura int {}".format(LM))
+                #print("leitura temperatura int {}".format(LM))
                 LM_data.append(LM)
                 a+=1
 
@@ -321,7 +324,7 @@ class SerialSensor:
         matrix=[]
         while a < n_data: # 60 amostras
             if interruptCounter > 0:
-                print("Leitura {} de {}".format(a, n_data))                
+                #print("Leitura {} de {}".format(a, n_data))                
                 interruptCounter = interruptCounter - 1
                 
                 data=uart.readline()
@@ -368,7 +371,7 @@ class SerialSensor:
 
         gc.collect() # control of garbage collection
         gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
-
+        print(resultado)
         return resultado
 
     def send(self, data):
@@ -385,8 +388,8 @@ class SerialSensor:
 
 #criando os sensores seriais + storx
 
-ProbeCO2 = SerialSensor(1, 19200) 
-STORX = SerialSensor(0, 9600)  
+ProbeCO2 = SerialSensor(uart_ch_pbco2, BAUDRATE_PBCO2) 
+STORX = SerialSensor(uart_ch_storx, BAUDRATE_STORX)
 
 # criando os sensores analogicos
 anemometro = anemometer(WS_in_min, WS_in_max, WS_out_min, WS_out_max, WD_in_min, WD_in_max, WD_out_min, WD_out_max) 
@@ -585,4 +588,5 @@ def main():
 # Executando a função principal
 if __name__ == "__main__":
     main()
+
 
