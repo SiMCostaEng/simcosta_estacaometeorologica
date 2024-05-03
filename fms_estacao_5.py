@@ -12,9 +12,10 @@ CH_A_MUX = Pin(15, mode=Pin.OUT, value=0)
 CH_B_MUX  = Pin(4, mode=Pin.OUT, value=0)
 
 BAUDRATE = 19200
-BAUDRATE_STORX = 19200
-BAUDRATE_COMPASS = 4800
-BAUDRATE_PROBECO2 = 19200
+#BAUDRATE_STORX = 19200
+#BAUDRATE_COMPASS = 4800
+#BAUDRATE_PROBECO2 = 19200
+
 
 uart_ch = 0
 uart = UART(2, BAUDRATE) #trocar uart no esquemático para a UART 2. A UART 0 é utilizada como UART DOWNLOAD
@@ -85,8 +86,8 @@ timer=machine.Timer(0)
 a=0
 state_name='0'
 n_data = 60    # quantidade de medidas a ser adquirida
-n_var_co2=2
-
+n_var_co2=2    #quantiidade de variáveis medidas no sensor de co2
+n_sec = 60     #quantidade de segundos a serem esperados na função init
 
 def handlerInterrupt(timer):
     global interruptCounter    
@@ -103,24 +104,25 @@ def readChannel(adc, channel):
     voltage = adc.getResult_V()
     return voltage
 
-def select_uart(uart_ch):
-    global BAUDRATE_STORX, BAUDRATE_COMPASS, BAUDRATE_PROBECO2, BAUDRATE 
+def select_uart(uart_ch, BAUDRATE):
+    global uart
     if uart_ch == 0:
-        #uart = UART(2, BAUDRATE_STORX)
-        BAUDRATE=BAUDRATE_STORX
+        #BAUDRATE=BAUDRATE_STORX
+        uart = UART(2, BAUDRATE)
+        print(BAUDRATE)
         CH_A_MUX.value(0)
         CH_B_MUX.value(0)
 
     elif uart_ch == 1:
-        #uart = UART(2, 19200)
-        BAUDRATE=BAUDRATE_PROBECO2
-        uart.write("i'm in..............")
+        #BAUDRATE=BAUDRATE_PROBECO2
+        uart = UART(2, BAUDRATE)
+        print(BAUDRATE)
         CH_A_MUX.value(1)
         CH_B_MUX.value(0)
                 
     elif uart_ch == 2:
-        #uart = UART(2, BAUDRATE_COMPASS)
-        BAUDRATE=BAUDRATE_COMPASS
+        #BAUDRATE=BAUDRATE_COMPASS
+        uart = UART(2, BAUDRATE)
         CH_A_MUX.value(0)
         CH_B_MUX.value(1)
 
@@ -299,12 +301,12 @@ class SerialSensor:
     def __init__(self, uart_ch, BAUDRATE):
         self.uart_ch=uart_ch
         self.baudrate=BAUDRATE
-        select_uart(self.uart_ch)
 
-    def init(self, msg):
+    def init(self, n_sec, msg):
         global interruptCounter
         a=0
-        while a < 15: # 10 seguntos de envio para ler o sensor
+        select_uart(self.uart_ch, self.baudrate)
+        while a < n_sec: # 10 seguntos de envio para ler o sensor
             # Envia o comando R para o probe de CO2 para iniciar a leitura
             uart.write(msg) 
             if interruptCounter > 0:
@@ -344,9 +346,9 @@ class SerialSensor:
                             print("Unexpected number of values in data:", x)
                     else:
                         print("Empty data received")
-
+        a=0
         # Envia o comando S para o probe de CO2 para finalizar a leitura
-        uart.write("S\r\n")
+        uart.write("s\r\n")
 
         # Inicializar listas para armazenar os valores
         means=[]
@@ -382,8 +384,9 @@ class SerialSensor:
 ######################################################################################
 
 #criando os sensores seriais + storx
-  
-ProbeCO2 = SerialSensor(1, BAUDRATE_PROBECO2)
+
+ProbeCO2 = SerialSensor(1, 19200) 
+STORX = SerialSensor(0, 9600)  
 
 # criando os sensores analogicos
 anemometro = anemometer(WS_in_min, WS_in_max, WS_out_min, WS_out_max, WD_in_min, WD_in_max, WD_out_min, WD_out_max) 
@@ -469,7 +472,7 @@ class StateRead:
             #co2_data = PROBE_CO2.read(n_data)
             #print(co2_data)
 
-            ProbeCO2.init("R\r\n")
+            ProbeCO2.init(n_sec,"R\r\n")
             co2_data = ProbeCO2.read(n_data, n_var_co2)
             print(co2_data)
             
@@ -521,10 +524,9 @@ class StateSend:
     def send(self):
         global input_var
         global estacao_comma_separated
-        STORX = SerialSensor(0, BAUDRATE_STORX)  
         
-        STORX.init("R\r\n")
-        STORX.send(estacao_comma_separated)
+        STORX.init(n_sec,"oi storx\r\n")
+        STORX.send(estacao_comma_separated+"\r\n")
 
 
         file = open('testeabril.txt', 'a')
@@ -570,11 +572,11 @@ def main():
     current_state = State0()
 
     while True:
-        global input_var
+    #    global input_var
         #print(input_var)
-        input_var = int(input("Digite um número de 0 a 4 (-1 para sair): "))
-        if input_var == -1:
-            break
+    #    input_var = int(input("Digite um número de 0 a 4 (-1 para sair): "))
+    #    if input_var == -1:
+    #        break
 
         # Fazendo a transição de estado com base no input_var
         current_state = current_state.transition(input_var)
