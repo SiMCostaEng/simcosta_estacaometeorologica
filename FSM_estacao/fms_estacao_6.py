@@ -11,6 +11,8 @@ import gc
 CH_A_MUX = Pin(15, mode=Pin.OUT, value=0)   
 CH_B_MUX  = Pin(4, mode=Pin.OUT, value=0)
 
+led_debug_1 = Pin(33, mode=Pin.OUT, value=0)
+
 BAUDRATE = 19200
 #BAUDRATE_STORX = 19200
 #BAUDRATE_COMPASS = 4800
@@ -86,7 +88,7 @@ timer=machine.Timer(0)
 
 a=0
 state_name='0'
-n_data = 10    # quantidade de medidas a ser adquirida
+n_data = 60    # quantidade de medidas a ser adquirida
 n_var_co2=2    #quantiidade de variáveis medidas no sensor de co2
 n_sec = 20     #quantidade de segundos a serem esperados na função init
 
@@ -110,14 +112,14 @@ def select_uart(uart_ch, BAUDRATE):
     if uart_ch == 0:
         #BAUDRATE=BAUDRATE_STORX
         uart = UART(2, BAUDRATE)
-        print(BAUDRATE)
+        #print(BAUDRATE)
         CH_A_MUX.value(0)
         CH_B_MUX.value(0)
 
     elif uart_ch == 1:
         #BAUDRATE=BAUDRATE_PROBECO2
         uart = UART(2, BAUDRATE)
-        print(BAUDRATE)
+        #print(BAUDRATE)
         CH_A_MUX.value(1)
         CH_B_MUX.value(0)
                 
@@ -131,146 +133,220 @@ def select_uart(uart_ch, BAUDRATE):
         CH_A_MUX.value(1)
         CH_B_MUX.value(1)
 
-class TemperatureHumidityProbe:
-    def __init__(self, T_in_min, T_in_max, T_out_min, T_out_max, H_in_min, H_in_max, H_out_min,H_out_max):
-        self.T_in_min = T_in_min
-        self.T_in_max = T_in_max
-        self.T_out_min = T_out_min
-        self.T_out_max = T_out_max
-        self.H_in_min = H_in_min
-        self.H_in_max = H_in_max
-        self.H_out_min = H_out_min
-        self.H_out_max = H_out_max
+# class AnalogSensor:
+#     def __init__(self, ADC, PORT, A_in_min, A_in_max, A_out_min, A_out_max):
+#         self.ADC = ADC
+#         self.PORT = PORT
+#         self.A_in_min = A_in_min
+#         self.A_in_max = A_in_max
+#         self.A_out_min = A_out_min
+#         self.A_out_max = A_out_max
 
-    def read(self, n_data, ADC_T, PORT_T, ADC_H, PORT_H):
-        global interruptCounter
-        a=0
-        while a < n_data:
-            if interruptCounter > 0:
-                print('Leitura {} de {}'.format(a, n_data))
-                interruptCounter = interruptCounter - 1 
-                T_value =  readChannel(ADC_T, PORT_T)
-                T = (T_value - self.T_in_min) * (self.T_out_max - self.T_out_min) / (self.T_in_max - self.T_in_min) + self.T_out_min
-                
-                #print("T: {}".format(T))
-                T_data.append(T)
-                
-                H_value =  readChannel(ADC_H, PORT_H)
-                H = (H_value - self.H_in_min) * (self.H_out_max - self.H_out_min) / (self.H_in_max - self.H_in_min) + self.H_out_min
-                #print("H: {}".format(H))
-                H_data.append(H)
-                a+=1
+#     def read(self):
+#         A_value =  readChannel(ADC, PORT)
+#         A = (A_value - A_in_min) * (A_out_max - A_out_min) / (A_in_max - A_in_min) + A_out_min
+#         #A_data.append(A)
         
-        T_mean = np.mean(T_data)
-        T_stdev = np.std(T_data)
-        H_mean = np.mean(H_data)
-        H_stdev = np.std(H_data)
+#         #A_mean = np.mean(A_data)
+#         #A_stdev = np.std(A_data)
+        
+#         #gc.collect() # control of garbage collection
+#         #gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
     
-        gc.collect() # control of garbage collection
-        gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
-    
-        probeTHRData = [T_mean, T_stdev, H_mean, H_stdev]
-        #probeData = str(probeData)
-        return probeTHRData
+#         #AnalogicSensorData = [A_mean, A_stdev]   #List
+#         return A #AnalogicSensorData
 
-class Barometer:
-    def __init__(self, P_in_min, P_in_max, P_out_min, P_out_max):
-        self.P_in_min = P_in_min
-        self.P_in_max = P_in_max
-        self.P_out_min = P_out_min
-        self.P_out_max = P_out_max
 
-    def read(self, n_data, ADC_P, PORT_P):
-        global interruptCounter
-        a=0
-        while a < n_data:
-            if interruptCounter > 0:
-                print('Leitura {} de {}'.format(a, n_data))
-                interruptCounter = interruptCounter - 1 
-                P_value =  readChannel(ADC_P, PORT_P)
-                P = (P_value - P_in_min) * (P_out_max - P_out_min) / (P_in_max - P_in_min) + P_out_min
-                P_data.append(P)
+class AnalogSensor:
+    def __init__(self, num_channels):
+        self.channels = []
+        for i in range(num_channels):
+            # Initialize channel parameters as desired.
+            channel = {
+                "ADC":0,
+                "PORT":0,
+                "param_in_min": 0,
+                "param_in_max": 0,
+                "param_out_min": 0,
+                "param_out_max": 0
+            }
+            self.channels.append(channel)
+
+    def config_channel(self, channel_index: int, ADC: int, PORT: int, param_in_min: float, param_in_max: float, param_out_min: float, param_out_max: float):
+        if 0 <= channel_index < len(self.channels):
+            self.channels[channel_index] = {
+                "ADC": ADC,
+                "PORT": PORT,
+                "param_in_min": param_in_min,
+                "param_in_max": param_in_max,
+                "param_out_min": param_out_min,
+                "param_out_max": param_out_max
+            }
+        # else:
+        #     print("Invalid channel index {}. It should be between 0 and {}".format(channel_index, len(self.channels) - 1))
+
+    def read_channel(self, channel_index):
+        if 0 <= channel_index < len(self.channels):
+            signal = readChannel(self.channels[channel_index]["ADC"], self.channels[channel_index]["PORT"])
+            response = (signal - self.channels[channel_index]["param_in_min"]) * (self.channels[channel_index]["param_out_max"] - self.channels[channel_index]["param_out_min"]) / (self.channels[channel_index]["param_in_max"] - self.channels[channel_index]["param_in_min"]) + self.channels[channel_index]["param_out_min"]
+
+            return response
+        # else:
+        #     print("Invalid channel index {}. It should be between 0 and {}".format(
+        #         channel_index, len(self.channels) - 1))
+        #     return None
+
+    # def read_all_channels(self):
+    #     return self.channels
+
+
+
+
+
+
+
+
+
+# class TemperatureHumidityProbe:
+#     def __init__(self, T_in_min, T_in_max, T_out_min, T_out_max, H_in_min, H_in_max, H_out_min,H_out_max):
+#         self.T_in_min = T_in_min
+#         self.T_in_max = T_in_max
+#         self.T_out_min = T_out_min
+#         self.T_out_max = T_out_max
+#         self.H_in_min = H_in_min
+#         self.H_in_max = H_in_max
+#         self.H_out_min = H_out_min
+#         self.H_out_max = H_out_max
+
+#     def read(self, n_data, ADC_T, PORT_T, ADC_H, PORT_H):
+#         global interruptCounter
+#         a=0
+#         while a < n_data:
+#             if interruptCounter > 0:
+#                 print('Leitura {} de {}'.format(a, n_data))
+#                 interruptCounter = interruptCounter - 1 
+#                 T_value =  readChannel(ADC_T, PORT_T)
+#                 T = (T_value - self.T_in_min) * (self.T_out_max - self.T_out_min) / (self.T_in_max - self.T_in_min) + self.T_out_min
                 
-                a+=1
+#                 #print("T: {}".format(T))
+#                 T_data.append(T)
+                
+#                 H_value =  readChannel(ADC_H, PORT_H)
+#                 H = (H_value - self.H_in_min) * (self.H_out_max - self.H_out_min) / (self.H_in_max - self.H_in_min) + self.H_out_min
+#                 #print("H: {}".format(H))
+#                 H_data.append(H)
+#                 a+=1
+        
+#         T_mean = np.mean(T_data)
+#         T_stdev = np.std(T_data)
+#         H_mean = np.mean(H_data)
+#         H_stdev = np.std(H_data)
+    
+#         gc.collect() # control of garbage collection
+#         gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
+    
+#         probeTHRData = [T_mean, T_stdev, H_mean, H_stdev]
+#         #probeData = str(probeData)
+#         return probeTHRData
+
+# class Barometer:
+#     def __init__(self, P_in_min, P_in_max, P_out_min, P_out_max):
+#         self.P_in_min = P_in_min
+#         self.P_in_max = P_in_max
+#         self.P_out_min = P_out_min
+#         self.P_out_max = P_out_max
+
+#     def read(self, n_data, ADC_P, PORT_P):
+#         global interruptCounter
+#         a=0
+#         while a < n_data:
+#             if interruptCounter > 0:
+#                 print('Leitura {} de {}'.format(a, n_data))
+#                 interruptCounter = interruptCounter - 1 
+#                 P_value =  readChannel(ADC_P, PORT_P)
+#                 P = (P_value - P_in_min) * (P_out_max - P_out_min) / (P_in_max - P_in_min) + P_out_min
+#                 P_data.append(P)
+                
+#                 a+=1
             
-            P_mean = np.mean(P_data)
-            P_stdev = np.std(P_data)
+#             P_mean = np.mean(P_data)
+#             P_stdev = np.std(P_data)
         
-        gc.collect() # control of garbage collection
-        gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
+#         gc.collect() # control of garbage collection
+#         gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
     
-        barometerData = [P_mean, P_stdev]   #List
-        return barometerData
+#         barometerData = [P_mean, P_stdev]   #List
+#         return barometerData
 
-class anemometer: 
-    def __init__(self, WS_in_min, WS_in_max, WS_out_min, WS_out_max, WD_in_min, WD_in_max, WD_out_min, WD_out_max):
-        self.WS_in_min = WS_in_min
-        self.WS_in_max = WS_in_max
-        self.WS_out_min = WS_out_min
-        self.WS_out_max = WS_out_max 
-        self.WD_in_min = WD_in_min
-        self.WD_in_max = WD_in_max
-        self.WD_out_min = WD_out_min
-        self.WD_out_max = WD_out_max
+# class anemometer: 
+#     def __init__(self, WS_in_min, WS_in_max, WS_out_min, WS_out_max, WD_in_min, WD_in_max, WD_out_min, WD_out_max):
+#         self.WS_in_min = WS_in_min
+#         self.WS_in_max = WS_in_max
+#         self.WS_out_min = WS_out_min
+#         self.WS_out_max = WS_out_max 
+#         self.WD_in_min = WD_in_min
+#         self.WD_in_max = WD_in_max
+#         self.WD_out_min = WD_out_min
+#         self.WD_out_max = WD_out_max
 
-    def read(self, n_data, ADC_WS, PORT_WS, ADC_WD, PORT_WD):
-        global interruptCounter
-        a=0
+#     def read(self, n_data, ADC_WS, PORT_WS, ADC_WD, PORT_WD):
+#         global interruptCounter
+#         a=0
 
-        while a < n_data:
-            if interruptCounter > 0:
-                WS_value=readChannel(ADC_WS, PORT_WS)
-                WD_value=readChannel(ADC_WD, PORT_WD)
-                print("Leitura {} de {}".format(a, n_data))
-                interruptCounter = interruptCounter - 1 
-                WS = (WS_value - self.WS_in_min) * (self.WS_out_max - self.WS_out_min) / (WS_in_max - self.WS_in_min) + self.WS_out_min
-                WS_data.append(WS)
-                #print("ws data: {}".format(WS_data))
-                WD = (WD_value - self.WD_in_min) * (self.WD_out_max - self.WD_out_min) / (WD_in_max - self.WD_in_min) + self.WD_out_min
-                WD_data.append(WD)
-                #print("wd data: {}".format(WD_data))
-                a+=1
-        WS_mean = np.mean(WS_data)
-        WS_stdev = np.std(WS_data)
-        WD_mean = np.mean(WD_data)
-        WD_stdev = np.std(WD_data)
+#         while a < n_data:
+#             if interruptCounter > 0:
+#                 WS_value=readChannel(ADC_WS, PORT_WS)
+#                 WD_value=readChannel(ADC_WD, PORT_WD)
+#                 print("Leitura {} de {}".format(a, n_data))
+#                 interruptCounter = interruptCounter - 1 
+#                 WS = (WS_value - self.WS_in_min) * (self.WS_out_max - self.WS_out_min) / (WS_in_max - self.WS_in_min) + self.WS_out_min
+#                 WS_data.append(WS)
+#                 #print("ws data: {}".format(WS_data))
+#                 WD = (WD_value - self.WD_in_min) * (self.WD_out_max - self.WD_out_min) / (WD_in_max - self.WD_in_min) + self.WD_out_min
+#                 WD_data.append(WD)
+#                 #print("wd data: {}".format(WD_data))
+#                 a+=1
+#         WS_mean = np.mean(WS_data)
+#         WS_stdev = np.std(WS_data)
+#         WD_mean = np.mean(WD_data)
+#         WD_stdev = np.std(WD_data)
     
-        gc.collect() # control of garbage collection
-        gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
+#         gc.collect() # control of garbage collection
+#         gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
     
-        anemometerData = [WS_mean, WS_stdev, WD_mean, WD_stdev]   #List
-        print(anemometerData)
-        return anemometerData
+#         anemometerData = [WS_mean, WS_stdev, WD_mean, WD_stdev]   #List
+#         print(anemometerData)
+#         return anemometerData
 
-class InternalTemperature:
-    def __init__(self, LM_in_min, LM_in_max, LM_out_min, LM_out_max):
-        self.LM_in_min=LM_in_min
-        self.LM_in_max=LM_in_max
-        self.LM_out_min=LM_out_min
-        self.LM_out_max=LM_out_max
+# class InternalTemperature:
+#     def __init__(self, LM_in_min, LM_in_max, LM_out_min, LM_out_max):
+#         self.LM_in_min=LM_in_min
+#         self.LM_in_max=LM_in_max
+#         self.LM_out_min=LM_out_min
+#         self.LM_out_max=LM_out_max
         
-    def read(self, n_data, ADC, PORT):
-        global interruptCounter
-        a=0
-        while a < n_data: # 60 amostras
-            if interruptCounter > 0:
-                print("Leitura {} de {}".format(a, n_data))
-                interruptCounter = interruptCounter - 1
-                LM_value =  readChannel(ADC, PORT)
-                LM = (LM_value - self.LM_in_min) * (self.LM_out_max - self.LM_out_min) / (self.LM_in_max - self.LM_in_min) + self.LM_out_min
-                print("leitura temperatura int {}".format(LM))
-                LM_data.append(LM)
-                a+=1
+#     def read(self, n_data, ADC, PORT):
+#         global interruptCounter
+#         a=0
+#         while a < n_data: # 60 amostras
+#             if interruptCounter > 0:
+#                 print("Leitura {} de {}".format(a, n_data))
+#                 interruptCounter = interruptCounter - 1
+#                 LM_value =  readChannel(ADC, PORT)
+#                 LM = (LM_value - self.LM_in_min) * (self.LM_out_max - self.LM_out_min) / (self.LM_in_max - self.LM_in_min) + self.LM_out_min
+#                 print("leitura temperatura int {}".format(LM))
+#                 LM_data.append(LM)
+#                 a+=1
 
-        LM_mean = np.mean(LM_data)
-        LM_stdev = np.std(LM_data)
+#         LM_mean = np.mean(LM_data)
+#         LM_stdev = np.std(LM_data)
     
-        gc.collect() # control of garbage collection
-        gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
+#         gc.collect() # control of garbage collection
+#         gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
     
-        InternalTempData = [LM_mean, LM_stdev]
-        print(InternalTempData)
-        return InternalTempData
+#         InternalTempData = [LM_mean, LM_stdev]
+#         print(InternalTempData)
+#         return InternalTempData
     
 class Compass:
     def __init__(self, uart_ch, BAUDRATE_COMPASS):
@@ -421,10 +497,25 @@ ProbeCO2 = SerialSensor(1, 19200)
 STORX = SerialSensor(0, 9600)  
 
 # criando os sensores analogicos
-anemometro = anemometer(WS_in_min, WS_in_max, WS_out_min, WS_out_max, WD_in_min, WD_in_max, WD_out_min, WD_out_max) 
-LM35 = InternalTemperature(LM_in_min, LM_in_max, LM_out_min, LM_out_max)
-probe_thr = TemperatureHumidityProbe(T_in_min, T_in_max, T_out_min, T_out_max, H_in_min, H_in_max, H_out_min, H_out_max)
-barometro = Barometer(P_in_min, P_in_max, P_out_min, P_out_max)
+# anemometro = anemometer(WS_in_min, WS_in_max, WS_out_min, WS_out_max, WD_in_min, WD_in_max, WD_out_min, WD_out_max) 
+# LM35 = InternalTemperature(LM_in_min, LM_in_max, LM_out_min, LM_out_max)
+# probe_thr = TemperatureHumidityProbe(T_in_min, T_in_max, T_out_min, T_out_max, H_in_min, H_in_max, H_out_min, H_out_max)
+# barometro = Barometer(P_in_min, P_in_max, P_out_min, P_out_max)
+
+anemometro = AnalogSensor(2)
+anemometro.config_channel(0, adc_2, ADS1115_COMP_2_GND, WS_in_min, WS_in_max, WS_out_min, WS_out_max)
+anemometro.config_channel(1, adc_2, ADS1115_COMP_1_GND, WD_in_min, WD_in_max, WD_out_min, WD_out_max)
+
+LM35 = AnalogSensor(1)
+LM35.config_channel(0, adc_2, ADS1115_COMP_0_GND, LM_in_min, LM_in_max, LM_out_min, LM_out_max)
+
+probe_thr = AnalogSensor(2)
+probe_thr.config_channel(0, adc_1, ADS1115_COMP_0_GND, T_in_min, T_in_max, T_out_min, T_out_max)
+probe_thr.config_channel(1, adc_1, ADS1115_COMP_1_GND, H_in_min, H_in_max, H_out_min, H_out_max)
+
+barometro = AnalogSensor(1)
+barometro.config_channel(0, adc_2, ADS1115_COMP_3_GND, P_in_min, P_in_max, P_out_min, P_out_max)
+
 
 #######################################################################################
 ############################# FINITE STATE MACHINE ####################################
@@ -489,45 +580,82 @@ class StateRead:
         global interruptCounter
         global input_var
         global estacao_comma_separated
-
+        a=0
+        
         
         if input_var == 2:
-            #T_value = readChannel_1(ADS1115_COMP_0_GND)
-            #H_value = readChannel_1(ADS1115_COMP_1_GND)
-            #P_value = readChannel_2(ADS1115_COMP_3_GND)
-            #TH_data = TemperatureHumidityRead(T_value, H_value)
-            #pressure_data = barometerRead(P_value)
-            #WS_value = readChannel_1(ADS1115_COMP_2_GND)
-            #WD_value = readChannel_1(ADS1115_COMP_3_GND)
+            while a < n_data: # 60 amostras
+#                 print("oi1")
 
-           # PROBE_CO2.inicializar()
-            #co2_data = PROBE_CO2.read(n_data)
+                if interruptCounter > 0:
+                    led_debug_1.value(1)
+                    print("Leitura {} de {}".format(a, n_data))
+                    
+                    interruptCounter = interruptCounter - 1
+                    led_debug_1.value(0)
+                
+                    T = probe_thr.read_channel(0)
+                    T_data.append(T)
+                    print("T_data: {}".format(T_data))
+
+                    H = probe_thr.read_channel(1)
+                    H_data.append(H)
+                    print("H_data: {}".format(H_data))
+                    
+                    LM = LM35.read_channel(0)
+                    LM_data.append(LM)
+                    print("LM_data: {}".format(LM_data))
+
+                    P = barometro.read_channel(0)
+                    P_data.append(P)
+                    print("P_data: {}".format(P_data))
+
+                    WS = anemometro.read_channel(0)
+                    WS_data.append(WS)
+                    print("WS_data: {}".format(WS_data))
+                    
+                    WD = anemometro.read_channel(1)
+                    WD_data.append(WD)                    
+                    print("WD_data: {}".format(WD_data))
+                    
+                    gc.collect() # control of garbage collection
+                    gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
+
+                    a+=1                    
+
+            #ProbeCO2.init(n_sec,"R\r\n")
+            #co2_data = ProbeCO2.read(n_data, n_var_co2)
+            
             #print(co2_data)
 
-            ProbeCO2.init(n_sec,"R\r\n")
-            co2_data = ProbeCO2.read(n_data, n_var_co2)
+            T_mean = np.mean(T_data)
+            T_stdev = np.std(T_data)            
+            T_result=[T_mean,T_stdev]
+
+            H_mean = np.mean(H_data)
+            H_stdev = np.std(H_data)
+            H_result=[H_mean,H_stdev]
+
+            LM_mean = np.mean(LM_data)
+            LM_stdev = np.std(LM_data)
+            LM_result=[LM_mean, LM_stdev]
+
+            P_mean = np.mean(P_data)
+            P_stdev = np.std(P_data)
+            P_result=[P_mean, P_stdev]
+
+            WS_mean = np.mean(WS_data)
+            WS_stdev = np.std(WS_data)
+            WS_result=[WS_mean, WS_stdev]            
             
-            print(co2_data)
-            
-            pressure_data = barometro.read(n_data, adc_2, ADS1115_COMP_3_GND)
-            print(pressure_data)
-
-            wind_data = anemometro.read(n_data, adc_2, ADS1115_COMP_2_GND, adc_2, ADS1115_COMP_1_GND)
-
-            LM_data = LM35.read(n_data, adc_2, ADS1115_COMP_0_GND)
-
-            probe_thr_data = probe_thr.read(n_data, adc_1, ADS1115_COMP_0_GND, adc_1, ADS1115_COMP_1_GND)
-            print(probe_thr_data)
-
-            #uart_ch=2 #bussola
-            #select_uart(uart_ch)
-        
-            #bussola_data = Compass.read(uart.read())
-        
+            WD_mean = np.mean(WD_data)
+            WD_stdev = np.std(WD_data)
+            WD_result=[WD_mean,WS_stdev]
+    
 
             #estacao = wind_data + TH_data + pressure_data + LM_data +co2_data + bussola_data
-            estacao =  wind_data  + LM_data + co2_data +  pressure_data + probe_thr_data 
-
+            #estacao =  WS_data + WD_data  + LM_data + P_data + T_data + H_data #+ co2_data +probe_thr_data 
+            estacao = T_result + H_result + LM_result + P_result + WS_result + WD_result
             estacao=str(estacao).strip('[]')   #transforma list em string retirando conchetes da msg
 
             estacao=[framesync,' '+estacao]              #coloca framesync no inicio da msg
@@ -618,4 +746,6 @@ def main():
 # Executando a função principal
 if __name__ == "__main__":
     main()
+
+
 
