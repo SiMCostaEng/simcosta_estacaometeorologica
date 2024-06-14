@@ -8,6 +8,7 @@ import gc
 import json
 from variables import *
 
+config_file = "config.json" 
 
 CH_A_MUX = Pin(15, mode=Pin.OUT, value=0)   
 CH_B_MUX  = Pin(4, mode=Pin.OUT, value=0)
@@ -50,7 +51,7 @@ timer.init(period=1000, mode=machine.Timer.PERIODIC, callback=handlerInterrupt) 
 
 #function to save the config dict do the json file
 def save_config():
-    with open("config.json","w") as f:
+    with open(config_file,"w") as f:
         json.dump(config, f)
 
 def readChannel(adc, channel):
@@ -87,9 +88,31 @@ def select_uart(uart_ch, BAUDRATE):
         CH_A_MUX.value(1)
         CH_B_MUX.value(1)
 
-class AnalogSensor:
-    def __init__(self, num_channels):
-        self.channels = []
+class Sensor:
+    def __init__(self, config):
+        self.config = config
+     
+    def from_config(cls, config_file):
+        with open(config_file) as f:
+            config = json.load(f)
+        
+        equipment_class = config.get("className")
+        
+        if equipment_class == "SerialSensor":
+            return SerialSensor(config)
+        elif equipment_class == "AnalogSensor":
+            return AnalogSensor(config)
+        else:
+            raise ValueError(f"Unknown equipment className '{equipment_class}'. Cannot instantiate.") 
+        
+class AnalogSensor(Sensor):
+    def __init__(self, config):
+        super().__init__(config)
+        self.adc=adc
+        self.port=port
+        self.num_channels = num_variables
+        self.channels = [] #duvida
+        
         for i in range(num_channels):
             # Initialize channel parameters as desired.
             channel = {
@@ -156,8 +179,9 @@ class Compass:
             print(Compass_info)
         return Compass_info
 
-class SerialSensor:
-    def __init__(self, uart_ch, BAUDRATE):
+class SerialSensor(Sensor):
+    def __init__(self, config):
+        super().__init__(config)
         self.uart_ch=uart_ch
         self.baudrate=BAUDRATE
 

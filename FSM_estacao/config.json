@@ -10,15 +10,15 @@
     "n_sec":20,
     "equipments":[
         {"className": "AnalogSensor","equipmentName": "AnemometerYoung","num_variables": 2,
-        "ch": 0, "adc":"adc_2", "port": "ADS1115_COMP_2_GND", "WS_in_min": 0.0, "WS_in_max" : 5.0, "WS_out_min" : 0.0, "WS_out_max" : 100.0, 
-        "ch": 1, "adc":"adc_2", "port": "ADS1115_COMP_2_GND", "WD_in_min" : 0.01, "WD_in_max" : 4.94, "WD_out_min" : 0.0, "WD_out_max" : 360.0},
+        "channel_index": 0, "adc":"adc_2", "port": "ADS1115_COMP_2_GND", "WS_in_min": 0.0, "WS_in_max" : 5.0, "WS_out_min" : 0.0, "WS_out_max" : 100.0, 
+        "channel_index": 1, "adc":"adc_2", "port": "ADS1115_COMP_2_GND", "WD_in_min" : 0.01, "WD_in_max" : 4.94, "WD_out_min" : 0.0, "WD_out_max" : 360.0},
         {"className":"AnalogSensor","equipmentName":"PbeTRhRotronic", "num_variables":2,
-        "ch":0, "adc": "adc_1", "port":"ADS1115_COMP_0_GND", "T_in_min" : 0, "T_in_max" : 1.0, "T_out_min" : -40, "T_out_max" : 60,
-        "ch":1, "adc":"adc_1", "port":"ADS1115_COMP_1_GND", "H_in_min" : 0, "H_in_max" : 1.0, "H_out_min" : 0, "H_out_max" : 100},
+        "channel_index":0, "adc": "adc_1", "port":"ADS1115_COMP_0_GND", "T_in_min" : 0, "T_in_max" : 1.0, "T_out_min" : -40, "T_out_max" : 60,
+        "channel_index":1, "adc":"adc_1", "port":"ADS1115_COMP_1_GND", "H_in_min" : 0, "H_in_max" : 1.0, "H_out_min" : 0, "H_out_max" : 100},
         {"className": "AnalogSensor", "equipmentName":"PBT110Vaisala", "num_variables":1,
-        "ch":0, "adc":"adc_2", "port":"ADS1115_COMP_3_GND","P_in_min" : 0,"P_in_max" : 5,"P_out_min": 800,"P_out_max" : 1060 },
+        "channel_index":0, "adc":"adc_2", "port":"ADS1115_COMP_3_GND","P_in_min" : 0,"P_in_max" : 5,"P_out_min": 800,"P_out_max" : 1060 },
         {"className":"AnalogSensor","equipmentName":"LM35", "num_variables":1,
-        "ch":0, "adc": "adc_2", "port":"ADS1115_COMP_0_GND",  "LM_in_min" : 0.0, "LM_in_max" : 1.50, "LM_out_min" : 2.0,"LM_out_max" : 150.0},
+        "channel_index":0, "adc": "adc_2", "port":"ADS1115_COMP_0_GND",  "LM_in_min" : 0.0, "LM_in_max" : 1.50, "LM_out_min" : 2.0,"LM_out_max" : 150.0},
         {"className":"SerialSensor","equipmentName":"GMP343Vaisala", "num_variables":2,"uart_ch":1,"BAUDRATE": 19200},
         {"className":"SerialSensor","equipmentName":"STORX","num_variables":0,"uart_ch":0,"BAUDRATE":19200}
     ]
