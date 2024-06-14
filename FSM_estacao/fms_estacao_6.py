@@ -8,12 +8,13 @@ import gc
 import json
 from variables import *
 
-config_file = "config.json" 
+
 
 CH_A_MUX = Pin(15, mode=Pin.OUT, value=0)   
 CH_B_MUX  = Pin(4, mode=Pin.OUT, value=0)
 
 led_debug_1 = Pin(33, mode=Pin.OUT, value=0)
+
 
 #uart_ch = 0
 uart = UART(2, BAUDRATE) #trocar uart no esquemático para a UART 2. A UART 0 é utilizada como UART DOWNLOAD

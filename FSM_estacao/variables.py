@@ -2,16 +2,17 @@
 import json
 import uos as os
 
+config_file = "config.json" 
 
 # Check if file exists using os.stat
 try:
-    os.stat("config.json")
+    os.stat(config_file)
 except OSError:
     print("Error: config.json file not found.")
     raise
 
 # Load the config file from flash
-with open("config.json") as f:
+with open(config_file) as f:
     config_content = f.read()
     print("Config file content:", config_content)  # Print the content to check for issues
 
@@ -54,7 +55,7 @@ for equipment in equipments:
         "channel_index": equipment.get("channel_index"),
         "adc": equipment.get("adc"),
         "port": equipment.get("port"),
-        "BAUDRATE": equipment.get("BAUDRATE"),
+        "BAUDRATE": equipment.get("BAUDRATE", 19200),
         "uart_ch": equipment.get("uart_ch"),
         "WS_in_min": equipment.get("WS_in_min"),
         "WS_in_max": equipment.get("WS_in_max"),
