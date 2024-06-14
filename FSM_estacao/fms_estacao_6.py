@@ -1,61 +1,21 @@
 import machine
-import os
-#from datetime import datetime
 from machine import Pin, UART, SoftI2C
 from ADS1115 import *
 import ustruct
 from ulab import numpy as np
 import random
 import gc
+import json
+from variables import *
+
 
 CH_A_MUX = Pin(15, mode=Pin.OUT, value=0)   
 CH_B_MUX  = Pin(4, mode=Pin.OUT, value=0)
 
 led_debug_1 = Pin(33, mode=Pin.OUT, value=0)
 
-BAUDRATE = 19200
-#BAUDRATE_STORX = 19200
-#BAUDRATE_COMPASS = 4800
-#BAUDRATE_PROBECO2 = 19200
-
-
-
-uart_ch = 0
+#uart_ch = 0
 uart = UART(2, BAUDRATE) #trocar uart no esquemático para a UART 2. A UART 0 é utilizada como UART DOWNLOAD
-
-framesync = "STATION"
-
-WS_in_min = 0.0
-WS_in_max = 5.0
-WS_out_min = 0.0    #WIND SPEED RANGE: 0 to 100 M/S
-WS_out_max = 100.0
- 
-WD_in_min = 0.01
-WD_in_max = 4.94
-WD_out_min = 0.0     #WIND DIRECTION RANGE: 0 to 360
-WD_out_max = 360.0
-
-T_in_min = 0
-T_in_max = 1.0
-T_out_min = -40     #range temperatura: -40°C à +60°C
-T_out_max = 60
- 
-H_in_min = 0
-H_in_max = 1.0
-H_out_min = 0       #range humidade: 0-100%
-H_out_max = 100
-
-P_in_min = 0
-P_in_max = 5
-P_out_min = 800     #range pressao 800 a 1060 hpa 
-P_out_max = 1060
-
-#PCB LM35
-LM_in_min = 0.0
-LM_in_max = 1.50     #out 0mV + 10mV/°C
-LM_out_min = 2.0     #range pressao 800 a 1060 hpa 
-LM_out_max = 150.0
-
 
 WS_data = []
 WD_data = []
@@ -64,11 +24,10 @@ H_data = []
 P_data = []
 LM_data = []
 co2_data=[]
- 
-ADS1115_1_ADDRESS = 0x48   # PIN ADDR = GND
-ADS1115_2_ADDRESS = 0X49   # PIR ADDR = VCC
+
 
 i2c = SoftI2C(scl = Pin(22), sda = Pin(21))
+
 
 adc_1 = ADS1115(ADS1115_1_ADDRESS, i2c=i2c)
 adc_2 = ADS1115(ADS1115_2_ADDRESS, i2c=i2c)
@@ -80,17 +39,8 @@ adc_2.setVoltageRange_mV(ADS1115_RANGE_6144)
 adc_2.setCompareChannels(ADS1115_COMP_0_GND)
 adc_2.setMeasureMode(ADS1115_SINGLE) 
 
-input_var = 0
 
-interruptCounter=0
 timer=machine.Timer(0)
-
-
-a=0
-state_name='0'
-n_data = 60    # quantidade de medidas a ser adquirida
-n_var_co2=2    #quantiidade de variáveis medidas no sensor de co2
-n_sec = 20     #quantidade de segundos a serem esperados na função init
 
 def handlerInterrupt(timer):
     global interruptCounter    
@@ -98,6 +48,10 @@ def handlerInterrupt(timer):
     #print("interruptcounter: {}".format(interruptCounter))
 timer.init(period=1000, mode=machine.Timer.PERIODIC, callback=handlerInterrupt) #period=1000, ou seja, a interrupção acontece uma vez por segundo; mode=machine.Timer.PERIODIC pois acontece em loop, a cada 1000 ms; callback=handlerInterrupt ou seja, a função que vai acontecer quando a interrupção for chamada
 
+#function to save the config dict do the json file
+def save_config():
+    with open("config.json","w") as f:
+        json.dump(config, f)
 
 def readChannel(adc, channel):
     adc.setCompareChannels(channel)
@@ -132,30 +86,6 @@ def select_uart(uart_ch, BAUDRATE):
     elif uart_ch == 3:
         CH_A_MUX.value(1)
         CH_B_MUX.value(1)
-
-# class AnalogSensor:
-#     def __init__(self, ADC, PORT, A_in_min, A_in_max, A_out_min, A_out_max):
-#         self.ADC = ADC
-#         self.PORT = PORT
-#         self.A_in_min = A_in_min
-#         self.A_in_max = A_in_max
-#         self.A_out_min = A_out_min
-#         self.A_out_max = A_out_max
-
-#     def read(self):
-#         A_value =  readChannel(ADC, PORT)
-#         A = (A_value - A_in_min) * (A_out_max - A_out_min) / (A_in_max - A_in_min) + A_out_min
-#         #A_data.append(A)
-        
-#         #A_mean = np.mean(A_data)
-#         #A_stdev = np.std(A_data)
-        
-#         #gc.collect() # control of garbage collection
-#         #gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
-    
-#         #AnalogicSensorData = [A_mean, A_stdev]   #List
-#         return A #AnalogicSensorData
-
 
 class AnalogSensor:
     def __init__(self, num_channels):
@@ -200,154 +130,6 @@ class AnalogSensor:
     #     return self.channels
 
 
-
-
-
-
-
-
-
-# class TemperatureHumidityProbe:
-#     def __init__(self, T_in_min, T_in_max, T_out_min, T_out_max, H_in_min, H_in_max, H_out_min,H_out_max):
-#         self.T_in_min = T_in_min
-#         self.T_in_max = T_in_max
-#         self.T_out_min = T_out_min
-#         self.T_out_max = T_out_max
-#         self.H_in_min = H_in_min
-#         self.H_in_max = H_in_max
-#         self.H_out_min = H_out_min
-#         self.H_out_max = H_out_max
-
-#     def read(self, n_data, ADC_T, PORT_T, ADC_H, PORT_H):
-#         global interruptCounter
-#         a=0
-#         while a < n_data:
-#             if interruptCounter > 0:
-#                 print('Leitura {} de {}'.format(a, n_data))
-#                 interruptCounter = interruptCounter - 1 
-#                 T_value =  readChannel(ADC_T, PORT_T)
-#                 T = (T_value - self.T_in_min) * (self.T_out_max - self.T_out_min) / (self.T_in_max - self.T_in_min) + self.T_out_min
-                
-#                 #print("T: {}".format(T))
-#                 T_data.append(T)
-                
-#                 H_value =  readChannel(ADC_H, PORT_H)
-#                 H = (H_value - self.H_in_min) * (self.H_out_max - self.H_out_min) / (self.H_in_max - self.H_in_min) + self.H_out_min
-#                 #print("H: {}".format(H))
-#                 H_data.append(H)
-#                 a+=1
-        
-#         T_mean = np.mean(T_data)
-#         T_stdev = np.std(T_data)
-#         H_mean = np.mean(H_data)
-#         H_stdev = np.std(H_data)
-    
-#         gc.collect() # control of garbage collection
-#         gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
-    
-#         probeTHRData = [T_mean, T_stdev, H_mean, H_stdev]
-#         #probeData = str(probeData)
-#         return probeTHRData
-
-# class Barometer:
-#     def __init__(self, P_in_min, P_in_max, P_out_min, P_out_max):
-#         self.P_in_min = P_in_min
-#         self.P_in_max = P_in_max
-#         self.P_out_min = P_out_min
-#         self.P_out_max = P_out_max
-
-#     def read(self, n_data, ADC_P, PORT_P):
-#         global interruptCounter
-#         a=0
-#         while a < n_data:
-#             if interruptCounter > 0:
-#                 print('Leitura {} de {}'.format(a, n_data))
-#                 interruptCounter = interruptCounter - 1 
-#                 P_value =  readChannel(ADC_P, PORT_P)
-#                 P = (P_value - P_in_min) * (P_out_max - P_out_min) / (P_in_max - P_in_min) + P_out_min
-#                 P_data.append(P)
-                
-#                 a+=1
-            
-#             P_mean = np.mean(P_data)
-#             P_stdev = np.std(P_data)
-        
-#         gc.collect() # control of garbage collection
-#         gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
-    
-#         barometerData = [P_mean, P_stdev]   #List
-#         return barometerData
-
-# class anemometer: 
-#     def __init__(self, WS_in_min, WS_in_max, WS_out_min, WS_out_max, WD_in_min, WD_in_max, WD_out_min, WD_out_max):
-#         self.WS_in_min = WS_in_min
-#         self.WS_in_max = WS_in_max
-#         self.WS_out_min = WS_out_min
-#         self.WS_out_max = WS_out_max 
-#         self.WD_in_min = WD_in_min
-#         self.WD_in_max = WD_in_max
-#         self.WD_out_min = WD_out_min
-#         self.WD_out_max = WD_out_max
-
-#     def read(self, n_data, ADC_WS, PORT_WS, ADC_WD, PORT_WD):
-#         global interruptCounter
-#         a=0
-
-#         while a < n_data:
-#             if interruptCounter > 0:
-#                 WS_value=readChannel(ADC_WS, PORT_WS)
-#                 WD_value=readChannel(ADC_WD, PORT_WD)
-#                 print("Leitura {} de {}".format(a, n_data))
-#                 interruptCounter = interruptCounter - 1 
-#                 WS = (WS_value - self.WS_in_min) * (self.WS_out_max - self.WS_out_min) / (WS_in_max - self.WS_in_min) + self.WS_out_min
-#                 WS_data.append(WS)
-#                 #print("ws data: {}".format(WS_data))
-#                 WD = (WD_value - self.WD_in_min) * (self.WD_out_max - self.WD_out_min) / (WD_in_max - self.WD_in_min) + self.WD_out_min
-#                 WD_data.append(WD)
-#                 #print("wd data: {}".format(WD_data))
-#                 a+=1
-#         WS_mean = np.mean(WS_data)
-#         WS_stdev = np.std(WS_data)
-#         WD_mean = np.mean(WD_data)
-#         WD_stdev = np.std(WD_data)
-    
-#         gc.collect() # control of garbage collection
-#         gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
-    
-#         anemometerData = [WS_mean, WS_stdev, WD_mean, WD_stdev]   #List
-#         print(anemometerData)
-#         return anemometerData
-
-# class InternalTemperature:
-#     def __init__(self, LM_in_min, LM_in_max, LM_out_min, LM_out_max):
-#         self.LM_in_min=LM_in_min
-#         self.LM_in_max=LM_in_max
-#         self.LM_out_min=LM_out_min
-#         self.LM_out_max=LM_out_max
-        
-#     def read(self, n_data, ADC, PORT):
-#         global interruptCounter
-#         a=0
-#         while a < n_data: # 60 amostras
-#             if interruptCounter > 0:
-#                 print("Leitura {} de {}".format(a, n_data))
-#                 interruptCounter = interruptCounter - 1
-#                 LM_value =  readChannel(ADC, PORT)
-#                 LM = (LM_value - self.LM_in_min) * (self.LM_out_max - self.LM_out_min) / (self.LM_in_max - self.LM_in_min) + self.LM_out_min
-#                 print("leitura temperatura int {}".format(LM))
-#                 LM_data.append(LM)
-#                 a+=1
-
-#         LM_mean = np.mean(LM_data)
-#         LM_stdev = np.std(LM_data)
-    
-#         gc.collect() # control of garbage collection
-#         gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
-    
-#         InternalTempData = [LM_mean, LM_stdev]
-#         print(InternalTempData)
-#         return InternalTempData
-    
 class Compass:
     def __init__(self, uart_ch, BAUDRATE_COMPASS):
         self.uart_ch=uart_ch
@@ -496,11 +278,7 @@ class SerialSensor:
 ProbeCO2 = SerialSensor(1, 19200) 
 STORX = SerialSensor(0, 9600)  
 
-# criando os sensores analogicos
-# anemometro = anemometer(WS_in_min, WS_in_max, WS_out_min, WS_out_max, WD_in_min, WD_in_max, WD_out_min, WD_out_max) 
-# LM35 = InternalTemperature(LM_in_min, LM_in_max, LM_out_min, LM_out_max)
-# probe_thr = TemperatureHumidityProbe(T_in_min, T_in_max, T_out_min, T_out_max, H_in_min, H_in_max, H_out_min, H_out_max)
-# barometro = Barometer(P_in_min, P_in_max, P_out_min, P_out_max)
+
 
 anemometro = AnalogSensor(2)
 anemometro.config_channel(0, adc_2, ADS1115_COMP_2_GND, WS_in_min, WS_in_max, WS_out_min, WS_out_max)
@@ -581,14 +359,20 @@ class StateRead:
         global input_var
         global estacao_comma_separated
         a=0
-        
+        led_debug_1.value(config["is_led_on"])
         
         if input_var == 2:
             while a < n_data: # 60 amostras
 #                 print("oi1")
 
                 if interruptCounter > 0:
-                    led_debug_1.value(1)
+                    
+                    #toggle led and save to the json file
+                    led_debug_1.value(not led_debug_1.value())
+                    config["is_led_on"]=led_debug_1.value()
+                    save_config()
+
+
                     print("Leitura {} de {}".format(a, n_data))
                     
                     interruptCounter = interruptCounter - 1
@@ -658,7 +442,7 @@ class StateRead:
             estacao = T_result + H_result + LM_result + P_result + WS_result + WD_result
             estacao=str(estacao).strip('[]')   #transforma list em string retirando conchetes da msg
 
-            estacao=[framesync,' '+estacao]              #coloca framesync no inicio da msg
+            estacao=[config["framesync"],' '+estacao]              #coloca framesync no inicio da msg
             #estacao=[counterstr,framesync,estacao]        
             #print(estacao)
             estacao_comma_separated = ','.join(estacao)
@@ -667,8 +451,7 @@ class StateRead:
             input_var=3
         
         print("state: {}".format(input_var))
-        return StateRead().transition(input_var)   
-    
+        return StateRead().transition(input_var)      
 class StateSend:
     def __init__(self):
         self.state_index = '3'
@@ -746,6 +529,7 @@ def main():
 # Executando a função principal
 if __name__ == "__main__":
     main()
+
 
 
 
