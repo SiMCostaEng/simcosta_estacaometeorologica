@@ -1,13 +1,24 @@
 import machine
 from machine import Pin, UART, SoftI2C
 from ADS1115 import *
-import ustruct
+# import ustruct
 from ulab import numpy as np
-import random
+# import random
 import gc
-import json
 from variables import *
 
+# Print statements to check imported variables
+# Print statements to check imported variables
+print("Imported Variables:")
+print("framesync:", framesync)
+print("ADS1115_1_ADDRESS:", ADS1115_1_ADDRESS)
+print("ADS1115_2_ADDRESS:", ADS1115_2_ADDRESS)
+print("input_var:", input_var)
+print("interruptCounter:", interruptCounter)
+print("n_data:", n_data)
+print("n_var_co2:", n_var_co2)
+print("n_sec:", n_sec)
+print("equipment_configs:", equipment_configs)
 
 
 CH_A_MUX = Pin(15, mode=Pin.OUT, value=0)   
@@ -18,6 +29,7 @@ led_debug_1 = Pin(33, mode=Pin.OUT, value=0)
 
 #uart_ch = 0
 uart = UART(2, BAUDRATE) #trocar uart no esquemático para a UART 2. A UART 0 é utilizada como UART DOWNLOAD
+
 
 WS_data = []
 WD_data = []
@@ -91,55 +103,67 @@ def select_uart(uart_ch, BAUDRATE):
 
 class Sensor:
     def __init__(self, config):
-        self.config = config
-     
-    def from_config(cls, config_file):
-        with open(config_file) as f:
-            config = json.load(f)
-        
-        equipment_class = config.get("className")
-        
-        if equipment_class == "SerialSensor":
-            return SerialSensor(config)
-        elif equipment_class == "AnalogSensor":
-            return AnalogSensor(config)
-        else:
-            raise ValueError(f"Unknown equipment className '{equipment_class}'. Cannot instantiate.") 
-        
+        # Define os atributos básicos do sensor a partir da configuração
+        self.equipmentName = config['equipmentName']  # Nome do equipamento
+        self.num_variables = config.get('num_variables', 0)  # Número de variáveis, default 0
+        self.config = config  # Armazena toda a configuração para uso futuro
+
+    def __repr__(self):
+        return f"Sensor(equipmentName={self.equipmentName}, num_variables={self.num_variables})"
 class AnalogSensor(Sensor):
     def __init__(self, config):
-        super().__init__(config)
-        self.adc=adc
-        self.port=port
-        self.num_channels = num_variables
-        self.channels = [] #duvida
-        
-        for i in range(num_channels):
-            # Initialize channel parameters as desired.
-            channel = {
-                "ADC":0,
-                "PORT":0,
-                "param_in_min": 0,
-                "param_in_max": 0,
-                "param_out_min": 0,
-                "param_out_max": 0
-            }
-            self.channels.append(channel)
+        super().__init__(config) # Inicializa a superclasse
+        # Processa canais e outros detalhes específicos de sensores analógicos
+        self.channels = [] 
+#        self.adc=adc
+#        self.port=port
+        self.num_channels = config.get("num_variables")
 
-    def config_channel(self, channel_index: int, ADC: int, PORT: int, param_in_min: float, param_in_max: float, param_out_min: float, param_out_max: float):
-        if 0 <= channel_index < len(self.channels):
-            self.channels[channel_index] = {
+        for i in range(self.num_channels):
+            self.channels.append({
+                "channel_index": config.get(f"channel_index{i}"),
+                "adc": config.get(f"adc{i}"),
+                "port": config.get(f"port{i}"),
+                "P_in_min": config.get(f"P{i}_in_min"),
+                "P_in_max": config.get(f"P{i}_in_max"),
+                "P_out_min": config.get(f"P{i}_out_min"),
+                "P_out_max": config.get(f"P{i}_out_max"),
+            })
+            # print("##########channels?################")
+            # print(self.channels)
+
+    # def config(self, channel_index: int):
+    #     if 0 <= channel_index < len(self.channels):
+    #          # Atualiza o canal com base no índice fornecido e na configuração original
+    #         self.channels[channel_index] = {
+    #             "ADC": ADC,
+    #             "PORT": PORT,
+    #             "param_in_min": param_in_min,
+    #             "param_in_max": param_in_max,
+    #             "param_out_min": param_out_min,
+    #             "param_out_max": param_out_max
+    #         }
+    #     else:
+    #         print("Invalid channel index {}. It should be between 0 and {}".format(channel_index, len(self.channels) - 1))
+
+    def config(self):
+        print("----------entrei no config---------")
+
+        for index, channel in enumerate(self.channels): # Atualiza o canal com base no índice fornecido e na configuração original
+            self.channels[index] = {
                 "ADC": ADC,
                 "PORT": PORT,
                 "param_in_min": param_in_min,
                 "param_in_max": param_in_max,
                 "param_out_min": param_out_min,
                 "param_out_max": param_out_max
-            }
-        # else:
-        #     print("Invalid channel index {}. It should be between 0 and {}".format(channel_index, len(self.channels) - 1))
+                }
+            
+            print("-------------------chanels--------------")
+            print(channel)
 
-    def read_channel(self, channel_index):
+
+    def read(self):
         if 0 <= channel_index < len(self.channels):
             signal = readChannel(self.channels[channel_index]["ADC"], self.channels[channel_index]["PORT"])
             response = (signal - self.channels[channel_index]["param_in_min"]) * (self.channels[channel_index]["param_out_max"] - self.channels[channel_index]["param_out_min"]) / (self.channels[channel_index]["param_in_max"] - self.channels[channel_index]["param_in_min"]) + self.channels[channel_index]["param_out_min"]
@@ -152,41 +176,13 @@ class AnalogSensor(Sensor):
 
     # def read_all_channels(self):
     #     return self.channels
-
-
-class Compass:
-    def __init__(self, uart_ch, BAUDRATE_COMPASS):
-        self.uart_ch=uart_ch
-        self.baudrate=BAUDRATE_COMPASS
-
-
-    def get_first_nbr_from_str(self, Compass_info):
-        if not input_str and not isinstance(input_str, str):
-            return 0
-        out_number = ''
-        for ele in input_str:
-            if (ele == '.' and '.' not in out_number) or ele.isdigit():
-                out_number += ele
-            elif out_number:
-                break
-        Compass_data=float(out_number)
-        return Compass_data
-
-    def read(self):
-        global uart, a, uart_ch, Compass_info
-        if Compass_info != None:
-            Compass_info=str(Compass_info)
-            Compass_info = get_first_nbr_from_str(Compass_info)
-            print(Compass_info)
-        return Compass_info
-
 class SerialSensor(Sensor):
     def __init__(self, config):
         super().__init__(config)
-        self.uart_ch=uart_ch
+        self.uart_ch=config.get("uart_ch")
         self.baudrate=BAUDRATE
 
-    def init(self, n_sec, msg):
+    def config(self, n_sec, msg):
         global interruptCounter
         a=0
         initialize = 0
@@ -296,32 +292,149 @@ class SerialSensor(Sensor):
                 print(data)
                 a+=1
 
-######################################################################################
 
-#criando os sensores seriais + storx
-
-ProbeCO2 = SerialSensor(1, 19200) 
-STORX = SerialSensor(0, 9600)  
-
+# class Compass:
+#     def __init__(self, uart_ch, BAUDRATE_COMPASS):
+#         self.uart_ch=uart_ch
+#         self.baudrate=BAUDRATE_COMPASS
 
 
-anemometro = AnalogSensor(2)
-anemometro.config_channel(0, adc_2, ADS1115_COMP_2_GND, WS_in_min, WS_in_max, WS_out_min, WS_out_max)
-anemometro.config_channel(1, adc_2, ADS1115_COMP_1_GND, WD_in_min, WD_in_max, WD_out_min, WD_out_max)
+#     def get_first_nbr_from_str(self, Compass_info):
+#         if not input_str and not isinstance(input_str, str):
+#             return 0
+#         out_number = ''
+#         for ele in input_str:
+#             if (ele == '.' and '.' not in out_number) or ele.isdigit():
+#                 out_number += ele
+#             elif out_number:
+#                 break
+#         Compass_data=float(out_number)
+#         return Compass_data
 
-LM35 = AnalogSensor(1)
-LM35.config_channel(0, adc_2, ADS1115_COMP_0_GND, LM_in_min, LM_in_max, LM_out_min, LM_out_max)
+#     def read(self):
+#         global uart, a, uart_ch, Compass_info
+#         if Compass_info != None:
+#             Compass_info=str(Compass_info)
+#             Compass_info = get_first_nbr_from_str(Compass_info)
+#             print(Compass_info)
+#         return Compass_info
+#############################################################################################################
+############################# THE SENSOR CREATION'S FINITE STATE MACHINE ####################################
 
-probe_thr = AnalogSensor(2)
-probe_thr.config_channel(0, adc_1, ADS1115_COMP_0_GND, T_in_min, T_in_max, T_out_min, T_out_max)
-probe_thr.config_channel(1, adc_1, ADS1115_COMP_1_GND, H_in_min, H_in_max, H_out_min, H_out_max)
+class initSensors:
+    @staticmethod
+    def criar_sensor(config):
+        equipment_class = config.get("className")
+        
+        if equipment_class == "SerialSensor":
+            return SerialSensor(config)
+        elif equipment_class == "AnalogSensor":
+            return AnalogSensor(config)
+        else:
+            raise ValueError(f"Unknown equipment className '{equipment_class}'. Cannot instantiate.") 
+        
+class FSM:
+    def __init__(self, equipments):
+        self.state = 'INICIALIZANDO'
+        self.equipments = equipments
+        self.instancias = {}
+        self.initSensors = initSensors()
+        self.visited_states = set()  # Para acompanhar os estados visitados
 
-barometro = AnalogSensor(1)
-barometro.config_channel(0, adc_2, ADS1115_COMP_3_GND, P_in_min, P_in_max, P_out_min, P_out_max)
+    def transitar_estado(self):
+        # Checar o estado atual e garantir que ele não foi visitado antes
+        if self.state == 'INICIALIZANDO':
+            if 'INICIALIZANDO' not in self.visited_states:
+                self.init_equipments()
+                self.visited_states.add('INICIALIZANDO')
+                self.state = 'LEITURA'
+            else:
+                print("Estado 'INICIALIZANDO' já foi visitado. Transição não permitida.")
+                
+        elif self.state == 'LEITURA':
+            if 'LEITURA' not in self.visited_states:
+                self.ler_equipamentos()
+                self.visited_states.add('LEITURA')
+                self.state = 'PROCESSANDO'
+            else:
+                print("Estado 'LEITURA' já foi visitado. Transição não permitida.")
+                
+        elif self.state == 'PROCESSANDO':
+            if 'PROCESSANDO' not in self.visited_states:
+                self.processar_equipamentos()
+                self.visited_states.add('PROCESSANDO')
+                # Definir o próximo estado se necessário ou encerrar o FSM
+                # Por exemplo: self.state = 'FINALIZADO'
+            else:
+                print("Estado 'PROCESSANDO' já foi visitado. Transição não permitida.")
+                
+        else:
+            print("Estado desconhecido.")
+
+    def init_equipments(self):
+        for equip_info in self.equipments:
+            try:
+                equipment = self.initSensors.criar_sensor(equip_info)
+                self.instancias[equip_info['equipmentName']] = equipment
+                print(f"{equip_info['equipmentName']} instanciado com sucesso.")
+            except ValueError as e:
+                print(f"Erro ao criar o equipamento: {e}")
+        self.transitar_estado()  # Transição automática após o processamento
+
+    def ler_equipamentos(self):
+        print("**entrei em processar equipamentos***")
+        for nome, equipment in self.instancias.items():
+
+            print(f"Processando {nome}: {equipment}")
+            if isinstance(equipment, AnalogSensor):
+                print(f"Lendo dados do sensor {nome}... {equipment}")
+                if hasattr(equipment, 'config') and callable(getattr(equipment, 'config')):
+                    # equipment.config()  # Chama o método config da classe AnalogSensor
+                    equipment.read()
+                else:
+                    (f"Erro: {nome} não tem um método 'config' válido.")
+
+            elif isinstance(equipment, SerialSensor):
+                print(f"Lendo dados do sensor {nome}... {equipment}")
+                if hasattr(equipment, 'config') and callable(getattr(equipment, 'config')):
+                    equipment.config()  # Chama o método read da classe SerialSensor
+                    equipment.read()
+
+                else:
+                    (f"Erro: {nome} não tem um método 'config' válido.") 
+            else:
+                print(f"{nome} não é do tipo AnalogSensor ou SerialSensor. Ignorando...")
+
+        self.transitar_estado()  # Transição automática após o processamento
+
+    def processar_equipamentos(self):
+        print("**entrei em processar equipamentos***")
+        # Implementar a lógica de processamento dos equipamentos aqui
+        self.transitar_estado()  # Transição automática após o processamento
+        
+
+#ProbeCO2 = SerialSensor(1, 19200) 
+#STORX = SerialSensor(0, 9600)  
+ 
 
 
-#######################################################################################
-############################# FINITE STATE MACHINE ####################################
+#anemometro = AnalogSensor(2)
+#anemometro.config_channel(0, adc_2, equipment_configs['AnemometerYoung']['port0'], P0_in_min, P0_in_max, P0_out_min, P0_out_max)
+#anemometro.config_channel(1, adc_2, ADS1115_COMP_1_GND, P1_in_min, P1_in_max, P1_out_min, P1_out_max)
+
+#LM35 = AnalogSensor(1)
+#LM35.config_channel(0, adc_2, ADS1115_COMP_0_GND, LM_in_min, LM_in_max, LM_out_min, LM_out_max)
+
+#probe_thr = AnalogSensor(2)
+#probe_thr.config_channel(0, adc_1, ADS1115_COMP_0_GND, T_in_min, T_in_max, T_out_min, T_out_max)
+#probe_thr.config_channel(1, adc_1, ADS1115_COMP_1_GND, H_in_min, H_in_max, H_out_min, H_out_max)
+
+#barometro = AnalogSensor(1)
+#barometro.config_channel(0, adc_2, ADS1115_COMP_3_GND, P_in_min, P_in_max, P_out_min, P_out_max)
+
+
+############################################################################################################
+############################# THE DATA ACQUISITION FINITE STATE MACHINE ####################################
 class State0: #OK
     def __init__(self):
         self.state_index = '0'
@@ -385,11 +498,11 @@ class StateRead:
         global estacao_comma_separated
         a=0
         led_debug_1.value(config["is_led_on"])
-        
+
         if input_var == 2:
             while a < n_data: # 60 amostras
-#                 print("oi1")
-
+                fsm = FSM(equipments)
+                fsm.transitar_estado()
                 if interruptCounter > 0:
                     
                     #toggle led and save to the json file
@@ -400,35 +513,40 @@ class StateRead:
 
                     print("Leitura {} de {}".format(a, n_data))
                     
+
+                      # Transita para o estado INICIALIZANDO e instancia os equipamentos
+                    # fsm.transitar_estado()  # Transita para o estado PROCESSANDO e processa os equipamentos
+
+
                     interruptCounter = interruptCounter - 1
                     led_debug_1.value(0)
                 
-                    T = probe_thr.read_channel(0)
-                    T_data.append(T)
-                    print("T_data: {}".format(T_data))
+                    # T = probe_thr.read_channel(0)
+                    # T_data.append(T)
+                    # print("T_data: {}".format(T_data))
 
-                    H = probe_thr.read_channel(1)
-                    H_data.append(H)
-                    print("H_data: {}".format(H_data))
+                    # H = probe_thr.read_channel(1)
+                    # H_data.append(H)
+                    # print("H_data: {}".format(H_data))
                     
-                    LM = LM35.read_channel(0)
-                    LM_data.append(LM)
-                    print("LM_data: {}".format(LM_data))
+                    # LM = LM35.read_channel(0)
+                    # LM_data.append(LM)
+                    # print("LM_data: {}".format(LM_data))
 
-                    P = barometro.read_channel(0)
-                    P_data.append(P)
-                    print("P_data: {}".format(P_data))
+                    # P = barometro.read_channel(0)
+                    # P_data.append(P)
+                    # print("P_data: {}".format(P_data))
 
-                    WS = anemometro.read_channel(0)
-                    WS_data.append(WS)
-                    print("WS_data: {}".format(WS_data))
+                    # WS = anemometro.read_channel(0)
+                    # WS_data.append(WS)
+                    # print("WS_data: {}".format(WS_data))
                     
-                    WD = anemometro.read_channel(1)
-                    WD_data.append(WD)                    
-                    print("WD_data: {}".format(WD_data))
+                    # WD = anemometro.read_channel(1)
+                    # WD_data.append(WD)                    
+                    # print("WD_data: {}".format(WD_data))
                     
-                    gc.collect() # control of garbage collection
-                    gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
+                    # gc.collect() # control of garbage collection
+                    # gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
 
                     a+=1                    
 
@@ -437,37 +555,37 @@ class StateRead:
             
             #print(co2_data)
 
-            T_mean = np.mean(T_data)
-            T_stdev = np.std(T_data)            
-            T_result=[T_mean,T_stdev]
+            # T_mean = np.mean(T_data)
+            # T_stdev = np.std(T_data)            
+            # T_result=[T_mean,T_stdev]
 
-            H_mean = np.mean(H_data)
-            H_stdev = np.std(H_data)
-            H_result=[H_mean,H_stdev]
+            # H_mean = np.mean(H_data)
+            # H_stdev = np.std(H_data)
+            # H_result=[H_mean,H_stdev]
 
-            LM_mean = np.mean(LM_data)
-            LM_stdev = np.std(LM_data)
-            LM_result=[LM_mean, LM_stdev]
+            # LM_mean = np.mean(LM_data)
+            # LM_stdev = np.std(LM_data)
+            # LM_result=[LM_mean, LM_stdev]
 
-            P_mean = np.mean(P_data)
-            P_stdev = np.std(P_data)
-            P_result=[P_mean, P_stdev]
+            # P_mean = np.mean(P_data)
+            # P_stdev = np.std(P_data)
+            # P_result=[P_mean, P_stdev]
 
-            WS_mean = np.mean(WS_data)
-            WS_stdev = np.std(WS_data)
-            WS_result=[WS_mean, WS_stdev]            
+            # WS_mean = np.mean(WS_data)
+            # WS_stdev = np.std(WS_data)
+            # WS_result=[WS_mean, WS_stdev]            
             
-            WD_mean = np.mean(WD_data)
-            WD_stdev = np.std(WD_data)
-            WD_result=[WD_mean,WS_stdev]
+            # WD_mean = np.mean(WD_data)
+            # WD_stdev = np.std(WD_data)
+            # WD_result=[WD_mean,WS_stdev]
     
 
             #estacao = wind_data + TH_data + pressure_data + LM_data +co2_data + bussola_data
             #estacao =  WS_data + WD_data  + LM_data + P_data + T_data + H_data #+ co2_data +probe_thr_data 
-            estacao = T_result + H_result + LM_result + P_result + WS_result + WD_result
+            estacao = "1"#T_result + H_result + LM_result + P_result + WS_result + WD_result
             estacao=str(estacao).strip('[]')   #transforma list em string retirando conchetes da msg
 
-            estacao=[config["framesync"],' '+estacao]              #coloca framesync no inicio da msg
+            estacao=[framesync,' '+estacao]              #coloca framesync no inicio da msg
             #estacao=[counterstr,framesync,estacao]        
             #print(estacao)
             estacao_comma_separated = ','.join(estacao)
@@ -540,6 +658,15 @@ def main():
     # Inicializando a máquina de estados com o estado A
     current_state = State0()
 
+
+# Exemplo de uso
+
+
+    # fsm = FSM(equipments)
+    # fsm.transitar_estado()  # Transita para o estado INICIALIZANDO e instancia os equipamentos
+    # fsm.transitar_estado()  # Transita para o estado PROCESSANDO e processa os equipamentos
+
+
     while True:
         global input_var
         #print(input_var)
@@ -554,7 +681,3 @@ def main():
 # Executando a função principal
 if __name__ == "__main__":
     main()
-
-
-
-

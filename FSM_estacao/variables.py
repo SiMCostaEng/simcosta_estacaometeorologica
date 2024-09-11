@@ -32,7 +32,7 @@ ADS1115_1_ADDRESS = config.get("ADS1115_1_ADDRESS", 0x48)
 # PIR ADDR = VCC
 ADS1115_2_ADDRESS = config.get("ADS1115_2_ADDRESS", 0x49)
 
-
+BAUDRATE = config.get("BAUDRATE",19200)
 input_var = config["input_var"]
 interruptCounter=config["interruptCounter"]
 
@@ -49,42 +49,38 @@ equipment_configs = {}
 
 for equipment in equipments:
     equipment_config = {
-        "className": equipment["className"],
+        "className": equipment["className"], 
         "equipmentName": equipment["equipmentName"],
         "num_variables": equipment["num_variables"],
-        "channel_index": equipment.get("channel_index"),
-        "adc": equipment.get("adc"),
-        "port": equipment.get("port"),
+        "channel_index0": equipment.get("channel_index0"),
+        "adc0": equipment.get("adc0"),
+        "port0": equipment.get("port0"),
+        "channel_index1": equipment.get("channel_index1"),
+        "adc1": equipment.get("adc1"),
+        "port1": equipment.get("port1"),
         "BAUDRATE": equipment.get("BAUDRATE", 19200),
         "uart_ch": equipment.get("uart_ch"),
-        "WS_in_min": equipment.get("WS_in_min"),
-        "WS_in_max": equipment.get("WS_in_max"),
-        "WS_out_min": equipment.get("WS_out_min"),
-        "WS_out_max": equipment.get("WS_out_max"),
-        "WD_in_min": equipment.get("WD_in_min"),
-        "WD_in_max": equipment.get("WD_in_max"),
-        "WD_out_min": equipment.get("WD_out_min"),
-        "WD_out_max": equipment.get("WD_out_max"),
-        "T_in_min": equipment.get("T_in_min"),
-        "T_in_max": equipment.get("T_in_max"),
-        "T_out_min": equipment.get("T_out_min"),
-        "T_out_max": equipment.get("T_out_max"),
-        "H_in_min": equipment.get("H_in_min"),
-        "H_in_max": equipment.get("H_in_max"),
-        "H_out_min": equipment.get("H_out_min"),
-        "H_out_max": equipment.get("H_out_max"),
-        "P_in_min": equipment.get("P_in_min"),
-        "P_in_max": equipment.get("P_in_max"),
-        "P_out_min": equipment.get("P_out_min"),
-        "P_out_max": equipment.get("P_out_max"),
-        "LM_in_min": equipment.get("LM_in_min"),
-        "LM_in_max": equipment.get("LM_in_max"),
-        "LM_out_min": equipment.get("LM_out_min"),
-        "LM_out_max": equipment.get("LM_out_max"),
-    }
+        "P0_in_min": equipment.get("P0_in_min"),
+        "P0_in_max": equipment.get("P0_in_max"),
+        "P0_out_min": equipment.get("P0_out_min"),
+        "P0_out_max": equipment.get("P0_out_max"),
+        "P1_in_min": equipment.get("P1_in_min"),
+        "P1_in_max": equipment.get("P1_in_max"),
+        "P1_out_min": equipment.get("P1_out_min"),
+        "P1_out_max": equipment.get("P1_out_max"),
+        }
 
     equipment_configs[equipment["equipmentName"]] = equipment_config
 
+
+
+print("=========================================")
+print(equipment_configs)
+
+
+
+print("===================AnemometerYoung======================")
+print(equipment_configs['AnemometerYoung']['port0'])
 
 # #WIND SPEED RANGE: 0 to 100 M/S
 # WS_in_min = config["WS_in_min"]
