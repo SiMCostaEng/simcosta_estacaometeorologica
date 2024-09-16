@@ -73,48 +73,31 @@ for equipment in equipments:
     equipment_configs[equipment["equipmentName"]] = equipment_config
 
 
+datalogger=config["datalogger"]
+# Dicionário para armazenar configurações específicas do datalogger 
 
-print("=========================================")
-print(equipment_configs)
+print(datalogger)
+print(type(datalogger))
 
+datalogger=dict(enumerate(datalogger))
+# data_dict={}
 
+# for data_info in datalogger:
+#     data_dict={
+#             "className": equipment["className"],
+#             "equipmentName":equipment["equipmentName"],
+#             "num_variables":equipment["num_variables"],
+#             "uart_ch":equipment["uart_ch"],
+#             "BAUDRATE":equipment["BAUDRATE"]
+#             }
+  
+print(datalogger)
+print(type(datalogger))
+# print(data_dict)
+# print(type(data_dict))
+#print("====================todas as configs=====================")
+#print(equipment_configs)
 
-print("===================AnemometerYoung======================")
-print(equipment_configs['AnemometerYoung']['port0'])
-
-# #WIND SPEED RANGE: 0 to 100 M/S
-# WS_in_min = config["WS_in_min"]
-# WS_in_max = config["WS_in_max"]
-# WS_out_min = config["WS_out_min"]
-# WS_out_max = config["WS_out_max"]
-
-# #WIND DIRECTION RANGE: 0 to 360
-# WD_in_min = config["WD_in_min"]
-# WD_in_max = config["WD_in_max"]
-# WD_out_min = config["WD_out_min"]
-# WD_out_max = config["WD_out_max"]
-
-# #range temperatura: -40°C à +60°C
-# T_in_min = config["T_in_min"]
-# T_in_max = config["T_in_max"]
-# T_out_min = config["T_out_min"]
-# T_out_max = config["T_out_max"]
-
-# #range humidade: 0-100%
-# H_in_min = config["H_in_min"]
-# H_in_max = config["H_in_max"]
-# H_out_min = config["H_out_min"]
-# H_out_max = config["H_out_max"]
-
-# #range pressao 800 a 1060 hpa
-# P_in_min = config["P_in_min"]
-# P_in_max = config["P_in_max"]
-# P_out_min = config["P_out_min"] 
-# P_out_max = config["P_out_max"]
-
-# #PCB LM35 out 0mV + 10mV/°C
-# LM_in_min = config["LM_in_min"]
-# LM_in_max = config["LM_in_max"]
-# LM_out_min = config["LM_out_min"]
-# LM_out_max = config["LM_out_max"]
+#print("===================AnemometerYoung======================")
+#print(equipment_configs['AnemometerYoung'])
 

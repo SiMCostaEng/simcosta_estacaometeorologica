@@ -9,16 +9,16 @@ from variables import *
 
 # Print statements to check imported variables
 # Print statements to check imported variables
-print("Imported Variables:")
-print("framesync:", framesync)
-print("ADS1115_1_ADDRESS:", ADS1115_1_ADDRESS)
-print("ADS1115_2_ADDRESS:", ADS1115_2_ADDRESS)
-print("input_var:", input_var)
-print("interruptCounter:", interruptCounter)
-print("n_data:", n_data)
-print("n_var_co2:", n_var_co2)
-print("n_sec:", n_sec)
-print("equipment_configs:", equipment_configs)
+# print("Imported Variables:")
+# print("framesync:", framesync)
+# print("ADS1115_1_ADDRESS:", ADS1115_1_ADDRESS)
+# print("ADS1115_2_ADDRESS:", ADS1115_2_ADDRESS)
+# print("input_var:", input_var)
+# print("interruptCounter:", interruptCounter)
+# print("n_data:", n_data)
+# print("n_var_co2:", n_var_co2)
+# print("n_sec:", n_sec)
+# print("equipment_configs:", equipment_configs)
 
 
 CH_A_MUX = Pin(15, mode=Pin.OUT, value=0)   
@@ -52,6 +52,9 @@ adc_1.setMeasureMode(ADS1115_SINGLE)
 adc_2.setVoltageRange_mV(ADS1115_RANGE_6144)
 adc_2.setCompareChannels(ADS1115_COMP_0_GND)
 adc_2.setMeasureMode(ADS1115_SINGLE) 
+
+equipments = equipment_configs
+#datalogger=data_dict
 
 
 timer=machine.Timer(0)
@@ -164,10 +167,11 @@ class AnalogSensor(Sensor):
 
 
     def read(self):
+
         if 0 <= channel_index < len(self.channels):
             signal = readChannel(self.channels[channel_index]["ADC"], self.channels[channel_index]["PORT"])
             response = (signal - self.channels[channel_index]["param_in_min"]) * (self.channels[channel_index]["param_out_max"] - self.channels[channel_index]["param_out_min"]) / (self.channels[channel_index]["param_in_max"] - self.channels[channel_index]["param_in_min"]) + self.channels[channel_index]["param_out_min"]
-
+            print(response)
             return response
         # else:
         #     print("Invalid channel index {}. It should be between 0 and {}".format(
@@ -324,6 +328,9 @@ class SerialSensor(Sensor):
 class initSensors:
     @staticmethod
     def criar_sensor(config):
+        if not isinstance(config, dict):
+            raise TypeError(f"Expected config to be a dictionary, got {type(config).__name__} instead.")
+      
         equipment_class = config.get("className")
         
         if equipment_class == "SerialSensor":
@@ -332,85 +339,6 @@ class initSensors:
             return AnalogSensor(config)
         else:
             raise ValueError(f"Unknown equipment className '{equipment_class}'. Cannot instantiate.") 
-        
-class FSM:
-    def __init__(self, equipments):
-        self.state = 'INICIALIZANDO'
-        self.equipments = equipments
-        self.instancias = {}
-        self.initSensors = initSensors()
-        self.visited_states = set()  # Para acompanhar os estados visitados
-
-    def transitar_estado(self):
-        # Checar o estado atual e garantir que ele não foi visitado antes
-        if self.state == 'INICIALIZANDO':
-            if 'INICIALIZANDO' not in self.visited_states:
-                self.init_equipments()
-                self.visited_states.add('INICIALIZANDO')
-                self.state = 'LEITURA'
-            else:
-                print("Estado 'INICIALIZANDO' já foi visitado. Transição não permitida.")
-                
-        elif self.state == 'LEITURA':
-            if 'LEITURA' not in self.visited_states:
-                self.ler_equipamentos()
-                self.visited_states.add('LEITURA')
-                self.state = 'PROCESSANDO'
-            else:
-                print("Estado 'LEITURA' já foi visitado. Transição não permitida.")
-                
-        elif self.state == 'PROCESSANDO':
-            if 'PROCESSANDO' not in self.visited_states:
-                self.processar_equipamentos()
-                self.visited_states.add('PROCESSANDO')
-                # Definir o próximo estado se necessário ou encerrar o FSM
-                # Por exemplo: self.state = 'FINALIZADO'
-            else:
-                print("Estado 'PROCESSANDO' já foi visitado. Transição não permitida.")
-                
-        else:
-            print("Estado desconhecido.")
-
-    def init_equipments(self):
-        for equip_info in self.equipments:
-            try:
-                equipment = self.initSensors.criar_sensor(equip_info)
-                self.instancias[equip_info['equipmentName']] = equipment
-                print(f"{equip_info['equipmentName']} instanciado com sucesso.")
-            except ValueError as e:
-                print(f"Erro ao criar o equipamento: {e}")
-        self.transitar_estado()  # Transição automática após o processamento
-
-    def ler_equipamentos(self):
-        print("**entrei em processar equipamentos***")
-        for nome, equipment in self.instancias.items():
-
-            print(f"Processando {nome}: {equipment}")
-            if isinstance(equipment, AnalogSensor):
-                print(f"Lendo dados do sensor {nome}... {equipment}")
-                if hasattr(equipment, 'config') and callable(getattr(equipment, 'config')):
-                    # equipment.config()  # Chama o método config da classe AnalogSensor
-                    equipment.read()
-                else:
-                    (f"Erro: {nome} não tem um método 'config' válido.")
-
-            elif isinstance(equipment, SerialSensor):
-                print(f"Lendo dados do sensor {nome}... {equipment}")
-                if hasattr(equipment, 'config') and callable(getattr(equipment, 'config')):
-                    equipment.config()  # Chama o método read da classe SerialSensor
-                    equipment.read()
-
-                else:
-                    (f"Erro: {nome} não tem um método 'config' válido.") 
-            else:
-                print(f"{nome} não é do tipo AnalogSensor ou SerialSensor. Ignorando...")
-
-        self.transitar_estado()  # Transição automática após o processamento
-
-    def processar_equipamentos(self):
-        print("**entrei em processar equipamentos***")
-        # Implementar a lógica de processamento dos equipamentos aqui
-        self.transitar_estado()  # Transição automática após o processamento
         
 
 #ProbeCO2 = SerialSensor(1, 19200) 
@@ -436,61 +364,102 @@ class FSM:
 ############################################################################################################
 ############################# THE DATA ACQUISITION FINITE STATE MACHINE ####################################
 class State0: #OK
-    def __init__(self):
+    def __init__(self,equipments,datalogger):
         self.state_index = '0'
+        self.equipments = equipments
+        self.datalogger = datalogger
+        self.instancias = {}
+        self.dataloggerinst = {}
+        self.initSensors = initSensors()
 
     def transition(self, input_var): 
         if input_var == 0:
-            return State0()
+            return State0(self.equipments, self.datalogger).init_equipments()  # Passar equipamentos
         elif input_var == 1:
-            return StateWait().wait()
+            return StateWait(self.equipments, self.datalogger, self.instancias, self.dataloggerinst).wait()  # Passar equipamentos e instâncias
         else:
             print('erro')
-            return State0()
+            return State0(self.equipments, self.datalogger).init_equipments()
+        
+    def init_equipments(self):
+        for equip, equip_info in self.equipments.items():
+            try:
+                equipment = initSensors.criar_sensor(equip_info)
+                self.instancias[equip] = equipment
+                print(f"{equip} instanciado com sucesso.")
+            except ValueError as e:
+                print(f"Erro ao criar o equipamento: {e}")
+        
+        
+        print(type(self.equipments))
+        print(type(self.datalogger))
+
+        for data, data_info in self.datalogger.items():
+            try:
+                print(f"STORX********************************")
+                main_datalogger = initSensors.criar_sensor(data_info)
+                self.dataloggerinst[data] = main_datalogger
+                print(f"{data} instanciado com sucesso.")
+            except ValueError as e:
+                print(f"Erro ao criar o equipamento: {e}")
+
+        print("$$$$$$$$$$$$$$$$$$")
+        print(self.dataloggerinst)
+        input_var = 1
+        return State0(self.equipments,self.datalogger).transition(input_var)
+    
+
 class StateWait: #OK
-    def __init__(self):
+    def __init__(self,equipments,instancias, datalogger,dataloggerinst):
         self.state_index = '1'
+        self.equipments = equipments
+        self.instancias = instancias
+        self.datalogger=datalogger
+        self.dataloggerinst=dataloggerinst
         
     def transition(self, input_var):
         if input_var == 1:
-            return StateWait().wait()
+            return StateWait(self.equipments, self.instancias,self.datalogger, self.dataloggerinst).wait()
         elif input_var == 2:
-            #print("wait => read ok")
-            return StateRead().read()
+            return StateRead(self.equipments, self.instancias,self.datalogger,self.dataloggerinst).read()
         else:
             print('erro')
-            return State0()
+            return State0(self.equipments,self.datalogger).init_equipments()
         
     def wait(self):
         global input_var
         global interruptCounter
-
         a=0
+
         print("state: {}".format(input_var))
         print('going to sleep')
 
         while a < 10: # 10 seguntos de envio para ler o sensor
             # Envia o comando R para o probe de CO2 para iniciar a leitura
- 
             if interruptCounter > 0:
                 interruptCounter = interruptCounter - 1
                 a+=1
 
         print('waking up')
         input_var=2
-        return StateWait().transition(input_var)     
+        return StateWait(self.equipments,self.datalogger, self.instancias,self.dataloggerinst).transition(input_var)
+        
 class StateRead:
-    def __init__(self):
+    def __init__(self,equipments, instancias,datalogger, dataloggerinst):
         self.state_index='2'
+        self.equipments = equipments
+        self.instancias = instancias
+        self.datalogger = datalogger
+        self.dataloggerinst=dataloggerinst
 
     def transition(self, input_var):
         if input_var == 2:
-            return StateRead().read()
+            return StateRead(self.equipments, self.datalogger, self.instancias, self.dataloggerinst).read()
         elif input_var == 3:
-            return StateSend().send()
+            return StateSend(self.datalogger, self.dataloggerinst).send()
         else:
             print('erro')
-            return State0()
+            return State0(self.equipments, self.datalogger).init_equipments()
         
     def read(self):
         global interruptCounter
@@ -501,84 +470,39 @@ class StateRead:
 
         if input_var == 2:
             while a < n_data: # 60 amostras
-                fsm = FSM(equipments)
-                fsm.transitar_estado()
                 if interruptCounter > 0:
-                    
-                    #toggle led and save to the json file
+                #toggle led and save to the json file
                     led_debug_1.value(not led_debug_1.value())
                     config["is_led_on"]=led_debug_1.value()
                     save_config()
 
-
                     print("Leitura {} de {}".format(a, n_data))
-                    
 
-                      # Transita para o estado INICIALIZANDO e instancia os equipamentos
-                    # fsm.transitar_estado()  # Transita para o estado PROCESSANDO e processa os equipamentos
+                    for nome, self.equipment in self.instancias.items():
+                    #print(f"Processando {nome}: {equipment}")
+                        if isinstance(self.equipment, AnalogSensor):
+                        #print(f"Lendo dados do sensor {nome}... {equipment}")
+                        #if hasattr(equipment, 'config') and callable(getattr(equipment, 'config')):
+                            print("******************************")
+                            equipment.config()
+                            equipment.read()
+                        #else:
+                        #    (f"Erro: {nome} não tem um método 'config' válido.")
+                        elif isinstance(self.equipment, SerialSensor):
+                        #print(f"Lendo dados do sensor {nome}... {equipment}")
+                        #if hasattr(equipment, 'config') and callable(getattr(equipment, 'config')):
+                            equipment.config()  # Chama o método read da classe SerialSensor
+                            equipment.read()
+
+                        #else:
+                         #   (f"Erro: {nome} não tem um método 'config' válido.") 
+                        else:
+                            print(f"{nome} não é do tipo AnalogSensor ou SerialSensor. Ignorando...")
 
 
                     interruptCounter = interruptCounter - 1
                     led_debug_1.value(0)
-                
-                    # T = probe_thr.read_channel(0)
-                    # T_data.append(T)
-                    # print("T_data: {}".format(T_data))
-
-                    # H = probe_thr.read_channel(1)
-                    # H_data.append(H)
-                    # print("H_data: {}".format(H_data))
-                    
-                    # LM = LM35.read_channel(0)
-                    # LM_data.append(LM)
-                    # print("LM_data: {}".format(LM_data))
-
-                    # P = barometro.read_channel(0)
-                    # P_data.append(P)
-                    # print("P_data: {}".format(P_data))
-
-                    # WS = anemometro.read_channel(0)
-                    # WS_data.append(WS)
-                    # print("WS_data: {}".format(WS_data))
-                    
-                    # WD = anemometro.read_channel(1)
-                    # WD_data.append(WD)                    
-                    # print("WD_data: {}".format(WD_data))
-                    
-                    # gc.collect() # control of garbage collection
-                    # gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
-
-                    a+=1                    
-
-            #ProbeCO2.init(n_sec,"R\r\n")
-            #co2_data = ProbeCO2.read(n_data, n_var_co2)
-            
-            #print(co2_data)
-
-            # T_mean = np.mean(T_data)
-            # T_stdev = np.std(T_data)            
-            # T_result=[T_mean,T_stdev]
-
-            # H_mean = np.mean(H_data)
-            # H_stdev = np.std(H_data)
-            # H_result=[H_mean,H_stdev]
-
-            # LM_mean = np.mean(LM_data)
-            # LM_stdev = np.std(LM_data)
-            # LM_result=[LM_mean, LM_stdev]
-
-            # P_mean = np.mean(P_data)
-            # P_stdev = np.std(P_data)
-            # P_result=[P_mean, P_stdev]
-
-            # WS_mean = np.mean(WS_data)
-            # WS_stdev = np.std(WS_data)
-            # WS_result=[WS_mean, WS_stdev]            
-            
-            # WD_mean = np.mean(WD_data)
-            # WD_stdev = np.std(WD_data)
-            # WD_result=[WD_mean,WS_stdev]
-    
+                    a+=1
 
             #estacao = wind_data + TH_data + pressure_data + LM_data +co2_data + bussola_data
             #estacao =  WS_data + WD_data  + LM_data + P_data + T_data + H_data #+ co2_data +probe_thr_data 
@@ -594,10 +518,12 @@ class StateRead:
             input_var=3
         
         print("state: {}".format(input_var))
-        return StateRead().transition(input_var)      
+        return StateRead(self.equipments, self.datalogger, self.instancias, self.dataloggerinst).transition(input_var)      
 class StateSend:
-    def __init__(self):
+    def __init__(self, datalogger, dataloggerinst):
         self.state_index = '3'
+        self.datalogger = datalogger
+        self.dataloggerinst=dataloggerinst
 
     def transition(self, input_var):
         if input_var == 3:
@@ -611,11 +537,18 @@ class StateSend:
     def send(self):
         global input_var
         global estacao_comma_separated
-        
-        STORX.init(n_sec," ")
-        STORX.send(estacao_comma_separated+"\r\n")
 
-
+        for nome, self.main_datalogger in self.dataloggerinst.items():
+            #print(f"Processando {nome}: {equipment}")
+            if isinstance(self.main_datalogger, SerialSensor):
+                        #print(f"Lendo dados do sensor {nome}... {equipment}")
+                        #if hasattr(equipment, 'config') and callable(getattr(equipment, 'config')):
+                print("******************************")
+                main_datalogger.init(n_sec," ")
+                main_datalogger.send(estacao_comma_separated+"\r\n")
+            else:
+                print(f" O datalogger {nome} não foi instanciado. Ignorando...")
+    
         file = open('testeabril.txt', 'a')
         file.write(estacao_comma_separated)
         file.write("\n")
@@ -623,6 +556,7 @@ class StateSend:
         print("send: {}".format(input_var))
         input_var=4
         return StateSend().transition(input_var) 
+    
 class StateErase:
     def __init__(self):
         self.state_index = '4'
@@ -651,26 +585,17 @@ class StateErase:
         return StateErase().transition(input_var)
 
 #######################################################################################
-
-
 # Função principal do programa
+
 def main():
-    # Inicializando a máquina de estados com o estado A
-    current_state = State0()
-
-
-# Exemplo de uso
-
-
-    # fsm = FSM(equipments)
-    # fsm.transitar_estado()  # Transita para o estado INICIALIZANDO e instancia os equipamentos
-    # fsm.transitar_estado()  # Transita para o estado PROCESSANDO e processa os equipamentos
-
+    # Inicializando a máquina de estados com o estado 0
+    current_state = State0(equipments, datalogger)
 
     while True:
         global input_var
         #print(input_var)
-        input_var = 1#int(input("Digite um número de 0 a 4 (-1 para sair): "))
+        input_var = 0
+        #int(input("Digite um número de 0 a 4 (-1 para sair): "))
         if input_var == -1:
             break
 

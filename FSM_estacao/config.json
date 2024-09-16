@@ -1,7 +1,7 @@
 {
     "is_led_on":0,
     "BAUDRATE": 19200,
-    "framesync": "STATION",
+    "framesync": "DATAMET",
     "uart_ch":0,
     "input_var":0,
     "interruptCounter":0,
@@ -72,7 +72,9 @@
             "equipmentName":"GMP343Vaisala", 
             "num_variables":2,
             "uart_ch":1,
-            "BAUDRATE": 19200},
+            "BAUDRATE": 19200}
+    ],
+    "datalogger":[
         {
             "className":"SerialSensor",
             "equipmentName":"STORX",
