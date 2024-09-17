@@ -7,25 +7,11 @@ from ulab import numpy as np
 import gc
 from variables import *
 
-# Print statements to check imported variables
-# Print statements to check imported variables
-# print("Imported Variables:")
-# print("framesync:", framesync)
-# print("ADS1115_1_ADDRESS:", ADS1115_1_ADDRESS)
-# print("ADS1115_2_ADDRESS:", ADS1115_2_ADDRESS)
-# print("input_var:", input_var)
-# print("interruptCounter:", interruptCounter)
-# print("n_data:", n_data)
-# print("n_var_co2:", n_var_co2)
-# print("n_sec:", n_sec)
-# print("equipment_configs:", equipment_configs)
-
-
 CH_A_MUX = Pin(15, mode=Pin.OUT, value=0)   
 CH_B_MUX  = Pin(4, mode=Pin.OUT, value=0)
 
 led_debug_1 = Pin(33, mode=Pin.OUT, value=0)
-
+#first_run = 0 # criar condição para que os sensores sejam instanciados apenas 1x no inicio do codigo
 
 #uart_ch = 0
 uart = UART(2, BAUDRATE) #trocar uart no esquemático para a UART 2. A UART 0 é utilizada como UART DOWNLOAD
@@ -39,9 +25,7 @@ P_data = []
 LM_data = []
 co2_data=[]
 
-
 i2c = SoftI2C(scl = Pin(22), sda = Pin(21))
-
 
 adc_1 = ADS1115(ADS1115_1_ADDRESS, i2c=i2c)
 adc_2 = ADS1115(ADS1115_2_ADDRESS, i2c=i2c)
@@ -54,8 +38,6 @@ adc_2.setCompareChannels(ADS1115_COMP_0_GND)
 adc_2.setMeasureMode(ADS1115_SINGLE) 
 
 equipments = equipment_configs
-#datalogger=data_dict
-
 
 timer=machine.Timer(0)
 
@@ -322,8 +304,6 @@ class SerialSensor(Sensor):
 #             Compass_info = get_first_nbr_from_str(Compass_info)
 #             print(Compass_info)
 #         return Compass_info
-#############################################################################################################
-############################# THE SENSOR CREATION'S FINITE STATE MACHINE ####################################
 
 class initSensors:
     @staticmethod
@@ -340,26 +320,6 @@ class initSensors:
         else:
             raise ValueError(f"Unknown equipment className '{equipment_class}'. Cannot instantiate.") 
         
-
-#ProbeCO2 = SerialSensor(1, 19200) 
-#STORX = SerialSensor(0, 9600)  
- 
-
-
-#anemometro = AnalogSensor(2)
-#anemometro.config_channel(0, adc_2, equipment_configs['AnemometerYoung']['port0'], P0_in_min, P0_in_max, P0_out_min, P0_out_max)
-#anemometro.config_channel(1, adc_2, ADS1115_COMP_1_GND, P1_in_min, P1_in_max, P1_out_min, P1_out_max)
-
-#LM35 = AnalogSensor(1)
-#LM35.config_channel(0, adc_2, ADS1115_COMP_0_GND, LM_in_min, LM_in_max, LM_out_min, LM_out_max)
-
-#probe_thr = AnalogSensor(2)
-#probe_thr.config_channel(0, adc_1, ADS1115_COMP_0_GND, T_in_min, T_in_max, T_out_min, T_out_max)
-#probe_thr.config_channel(1, adc_1, ADS1115_COMP_1_GND, H_in_min, H_in_max, H_out_min, H_out_max)
-
-#barometro = AnalogSensor(1)
-#barometro.config_channel(0, adc_2, ADS1115_COMP_3_GND, P_in_min, P_in_max, P_out_min, P_out_max)
-
 
 ############################################################################################################
 ############################# THE DATA ACQUISITION FINITE STATE MACHINE ####################################
@@ -454,9 +414,9 @@ class StateRead:
 
     def transition(self, input_var):
         if input_var == 2:
-            return StateRead(self.equipments, self.datalogger, self.instancias, self.dataloggerinst).read()
+            return StateRead(self.equipments, self.instancias, self.datalogger, self.dataloggerinst).read()
         elif input_var == 3:
-            return StateSend(self.datalogger, self.dataloggerinst).send()
+            return StateSend(self.datalogger, self.dataloggerinst, self.equipments).send()
         else:
             print('erro')
             return State0(self.equipments, self.datalogger).init_equipments()
@@ -518,21 +478,22 @@ class StateRead:
             input_var=3
         
         print("state: {}".format(input_var))
-        return StateRead(self.equipments, self.datalogger, self.instancias, self.dataloggerinst).transition(input_var)      
+        return StateRead(self.equipments, self.instancias, self.datalogger, self.dataloggerinst).transition(input_var)      
 class StateSend:
-    def __init__(self, datalogger, dataloggerinst):
+    def __init__(self, datalogger, dataloggerinst, equipments):
         self.state_index = '3'
         self.datalogger = datalogger
         self.dataloggerinst=dataloggerinst
+        self.equipments = equipments
 
     def transition(self, input_var):
         if input_var == 3:
-            return StateSend().send()
+            return StateSend(self.datalogger, self.dataloggerinst, self.equipments).send()
         elif input_var == 4:
-            return StateErase().erase()
+            return StateErase(self.equipments, self.datalogger).erase()
         else:
             print('erro')
-            return State0()
+            return State0(self.equipments, self.datalogger).init_equipments()
         
     def send(self):
         global input_var
@@ -555,20 +516,22 @@ class StateSend:
         file.close()
         print("send: {}".format(input_var))
         input_var=4
-        return StateSend().transition(input_var) 
+        return StateSend(self.datalogger, self.dataloggerinst, self.equipments).transition(input_var) 
     
 class StateErase:
-    def __init__(self):
+    def __init__(self, equipments, datalogger):
         self.state_index = '4'
+        self.datalogger = datalogger
+        self.equipments = equipments
 
     def transition(self, input_var):
         if input_var == 4:
-            return StateErase()
+            return StateErase(self.equipments, self.datalogger).erase()
         elif input_var == 0:
-            return State0()
+            return State0(self.equipments, self.datalogger).init_equipments()
         else:
             print('erro')
-            return State0()
+            return State0(self.equipments, self.datalogger).init_equipments()
         
     def erase(self):
         global input_var
@@ -582,7 +545,7 @@ class StateErase:
         print("erase 1: {}".format(input_var))
         input_var=0
         print("erase 2: {}".format(input_var))
-        return StateErase().transition(input_var)
+        return StateErase(self.equipments, self.datalogger).transition(input_var)
 
 #######################################################################################
 # Função principal do programa
