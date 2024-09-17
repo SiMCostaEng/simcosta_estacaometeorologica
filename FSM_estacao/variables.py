@@ -80,6 +80,7 @@ print(datalogger)
 print(type(datalogger))
 
 datalogger=dict(enumerate(datalogger))
+print(datalogger)
 # data_dict={}
 
 # for data_info in datalogger:
