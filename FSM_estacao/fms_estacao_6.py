@@ -17,7 +17,7 @@ dataloggerinst = {}
 #uart_ch = 0
 uart = UART(2, BAUDRATE) #trocar uart no esquemático para a UART 2. A UART 0 é utilizada como UART DOWNLOAD
 
-
+responses={}
 WS_data = []
 WD_data = []
 T_data = []
@@ -102,6 +102,7 @@ class AnalogSensor(Sensor):
         # Processa canais e outros detalhes específicos de sensores analógicos
         self.equipmentName=config.get("equipmentName")
         self.channels = [] 
+        
 #        self.adc=adc
 #        self.port=port
         self.num_channels = config.get("num_variables")
@@ -119,39 +120,9 @@ class AnalogSensor(Sensor):
             })
         #print(type(self.channels)) # <class 'list'>
         
-    # def config(self, channel_index: int):
-    #     if 0 <= channel_index < len(self.channels):
-    #          # Atualiza o canal com base no índice fornecido e na configuração original
-    #         self.channels[channel_index] = {
-    #             "ADC": ADC,
-    #             "PORT": PORT,
-    #             "param_in_min": param_in_min,
-    #             "param_in_max": param_in_max,
-    #             "param_out_min": param_out_min,
-    #             "param_out_max": param_out_max
-    #         }
-    #     else:
-    #         print("Invalid channel index {}. It should be between 0 and {}".format(channel_index, len(self.channels) - 1))
-
-    def config(self):
-        print("----------entrei no config---------")
-
-        for index, channel in enumerate(self.channels): # Atualiza o canal com base no índice fornecido e na configuração original
-            self.channels[index] = {
-                "ADC": ADC,
-                "PORT": PORT,
-                "param_in_min": param_in_min,
-                "param_in_max": param_in_max,
-                "param_out_min": param_out_min,
-                "param_out_max": param_out_max
-                }
-            
-            print("-------------------chanels--------------")
-            print(channel)
-
 
     def read(self):
-        responses={} #dicionario que vai salvar as leituras dos sensores. As keys serão os canais
+        global responses #dicionario que vai salvar as leituras dos sensores. As keys serão os canais
 
         for channel in self.channels:
             adc_var=eval(channel["adc"])
@@ -160,16 +131,17 @@ class AnalogSensor(Sensor):
             signal = readChannel(adc_var, port_cte)
             response = (signal - channel["P_in_min"]) * (channel["P_out_max"] - channel["P_out_min"]) / (channel["P_in_max"] - channel["P_in_min"]) + channel["P_out_min"]
             
-            print(response)
-            print(type(response))
-
-            responses[self.equipmentName]=response
-
-        print(responses)
-
+            key = self.equipmentName + "_" + str(channel["channel_index"])
+            if key not in responses:
+                responses[key]=[]
+            responses[key].append(response)
+            
+            gc.collect() # control of garbage collection
+            gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
+        
         return responses
     
-    #def process(self):
+    #def process(self, ):
         
     
 
