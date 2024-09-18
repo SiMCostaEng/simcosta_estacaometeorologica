@@ -100,7 +100,7 @@ class AnalogSensor(Sensor):
     def __init__(self, config):
         super().__init__(config) # Inicializa a superclasse
         # Processa canais e outros detalhes específicos de sensores analógicos
-        
+        self.equipmentName=config.get("equipmentName")
         self.channels = [] 
 #        self.adc=adc
 #        self.port=port
@@ -150,7 +150,9 @@ class AnalogSensor(Sensor):
             print(channel)
 
 
-    def read(self):  
+    def read(self):
+        responses={} #dicionario que vai salvar as leituras dos sensores. As keys serão os canais
+
         for channel in self.channels:
             adc_var=eval(channel["adc"])
             port_cte=eval(channel["port"])
@@ -159,15 +161,18 @@ class AnalogSensor(Sensor):
             response = (signal - channel["P_in_min"]) * (channel["P_out_max"] - channel["P_out_min"]) / (channel["P_in_max"] - channel["P_in_min"]) + channel["P_out_min"]
             
             print(response)
+            print(type(response))
 
-        return response
-        # else:
-        #     print("Invalid channel index {}. It should be between 0 and {}".format(
-        #         channel_index, len(self.channels) - 1))
-        #     return None
+            responses[self.equipmentName]=response
 
-    # def read_all_channels(self):
-    #     return self.channels
+        print(responses)
+
+        return responses
+    
+    #def process(self):
+        
+    
+
 class SerialSensor(Sensor):
     def __init__(self, config):
         super().__init__(config)
@@ -492,7 +497,8 @@ class StateRead:
             input_var=3
         
         print("state: {}".format(input_var))
-        return StateRead(self.equipments, self.instancias, self.datalogger, self.dataloggerinst).transition(input_var)      
+        return StateRead(self.equipments, self.instancias, self.datalogger, self.dataloggerinst).transition(input_var)
+         
 class StateSend:
     def __init__(self, datalogger, dataloggerinst, equipments):
         self.state_index = '3'
