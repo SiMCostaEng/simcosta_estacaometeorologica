@@ -18,13 +18,6 @@ dataloggerinst = {}
 uart = UART(2, BAUDRATE) #trocar uart no esquemático para a UART 2. A UART 0 é utilizada como UART DOWNLOAD
 
 responses={}
-WS_data = []
-WD_data = []
-T_data = []
-H_data = []
-P_data = []
-LM_data = []
-co2_data=[]
 
 i2c = SoftI2C(scl = Pin(22), sda = Pin(21))
 
@@ -141,8 +134,22 @@ class AnalogSensor(Sensor):
         
         return responses
     
-    #def process(self, ):
-        
+    def process(self, responses):
+        data_processed={}
+        for key in responses:
+            data_mean=np.mean(responses[key])
+            data_stdv=np.std(responses[key])
+
+            if key not in data_processed:
+                data_processed[key]=[]
+
+            data_processed[key].append(data_mean)
+            data_processed[key].append(data_stdv)
+
+            gc.collect() # control of garbage collection
+            gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
+
+        return data_processed
     
 
 class SerialSensor(Sensor):
@@ -436,8 +443,10 @@ class StateRead:
                             # print(" equipment type: {}".format(type(equipment)))
                             #print(f"Métodos disponíveis para {nome}: {dir(equipment)}")
                             #equipment.config()
-                            print(equipment)
-                            equipment.read()
+                            #print(equipment)
+                            analog_data=equipment.read()
+                            
+                            
                         #else:
                         #    (f"Erro: {nome} não tem um método 'config' válido.")
                         elif isinstance(equipment, SerialSensor):
@@ -455,6 +464,9 @@ class StateRead:
                     led_debug_1.value(0)
                     a+=1
 
+            print(analog_data)
+            analog_data_processed=equipment.process(analog_data)
+            print(analog_data_processed)
             #estacao = wind_data + TH_data + pressure_data + LM_data +co2_data + bussola_data
             #estacao =  WS_data + WD_data  + LM_data + P_data + T_data + H_data #+ co2_data +probe_thr_data 
             estacao = "1"#T_result + H_result + LM_result + P_result + WS_result + WD_result
@@ -527,13 +539,7 @@ class StateErase:
         
     def erase(self):
         global input_var
-        WS_data.clear()
-        WD_data.clear()
-        T_data.clear()
-        H_data.clear()
-        P_data.clear()
-        LM_data.clear()
-        co2_data.clear()
+
         print("erase 1: {}".format(input_var))
         input_var=0
         print("erase 2: {}".format(input_var))
