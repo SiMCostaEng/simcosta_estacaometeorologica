@@ -1,13 +1,11 @@
 {
     "is_led_on":0,
     "BAUDRATE": 19200,
-    "framesync": "DATAMET",
+    "framesync": "DATAME",
     "uart_ch":0,
     "input_var":0,
     "interruptCounter":0,
     "n_data":60,
-    "n_var_co2":2,
-    "n_sec":20,
     "equipments":[
         {
             "className": "AnalogSensor",
@@ -72,7 +70,10 @@
             "equipmentName":"GMP343Vaisala", 
             "num_variables":2,
             "uart_ch":1,
-            "BAUDRATE": 19200}
+            "BAUDRATE": 19200,
+            "wakeup_msg":"R\r\n",
+            "time_config":20
+        }
     ],
     "datalogger":[
         {

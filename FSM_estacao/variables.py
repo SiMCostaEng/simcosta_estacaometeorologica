@@ -37,8 +37,8 @@ input_var = config["input_var"]
 interruptCounter=config["interruptCounter"]
 
 n_data = config["n_data"]    # quantidade de medidas a ser adquirida
-n_var_co2=config["n_var_co2"]    #quantiidade de variáveis medidas no sensor de co2
-n_sec = config["n_sec"]     #quantidade de segundos a serem esperados na função init
+#n_var_co2=config["n_var_co2"]    #quantiidade de variáveis medidas no sensor de co2
+#n_sec = config["n_sec"]     #quantidade de segundos a serem esperados na função init
 
 #Parâmetros dos sensores
 # Parâmetros dos sensores (aninhados em "equipments")
@@ -68,6 +68,8 @@ for equipment in equipments:
         "P1_in_max": equipment.get("P1_in_max"),
         "P1_out_min": equipment.get("P1_out_min"),
         "P1_out_max": equipment.get("P1_out_max"),
+        "wakeup_msg":equipment.get("wakeup_msg"),
+        "time_config":equipment.get("time_config")
         }
 
     equipment_configs[equipment["equipmentName"]] = equipment_config
