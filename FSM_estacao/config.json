@@ -1,11 +1,13 @@
 {
-    "is_led_on":0,
+    "is_led_1_on":0,
+    "is_led_2_on":0,
     "BAUDRATE": 19200,
     "framesync": "DATAME",
     "uart_ch":0,
     "input_var":0,
     "interruptCounter":0,
     "n_data":60,
+    "decimal":3,
     "equipments":[
         {
             "className": "AnalogSensor",
@@ -81,7 +83,9 @@
             "equipmentName":"STORX",
             "num_variables":0,
             "uart_ch":0,
-            "BAUDRATE":19200}
+            "BAUDRATE":19200,
+            "time_config":60
+        }
     ],
     "schedule":[
         

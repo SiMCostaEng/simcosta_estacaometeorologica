@@ -35,7 +35,7 @@ ADS1115_2_ADDRESS = config.get("ADS1115_2_ADDRESS", 0x49)
 BAUDRATE = config.get("BAUDRATE",19200)
 input_var = config["input_var"]
 interruptCounter=config["interruptCounter"]
-
+decimal = config.get("decimal",3) #por padrão, 3
 n_data = config["n_data"]    # quantidade de medidas a ser adquirida
 #n_var_co2=config["n_var_co2"]    #quantiidade de variáveis medidas no sensor de co2
 #n_sec = config["n_sec"]     #quantidade de segundos a serem esperados na função init

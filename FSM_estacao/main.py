@@ -6,11 +6,17 @@ from ulab import numpy as np
 # import random
 import gc
 from variables import *
+import time
+
+start_time = time.ticks_us()
+end_time=0
 
 CH_A_MUX = Pin(15, mode=Pin.OUT, value=0)   
 CH_B_MUX  = Pin(4, mode=Pin.OUT, value=0)
 
 led_debug_1 = Pin(33, mode=Pin.OUT, value=0)
+led_debug_2 = Pin(32, mode=Pin.OUT, value=0)
+
 first_run = 0 # criar condição para que os sensores sejam instanciados apenas 1x no inicio do codigo
 instancias = {}
 dataloggerinst = {}
@@ -272,12 +278,13 @@ class SerialSensor(Sensor):
         select_uart(self.uart_ch, self.baudrate)
 
         a=0
-        while a < 20: # 5 seguntos de envio 
+        while a < self.time_config: # x segundos de envio definidos no json
 
             if interruptCounter > 0:
                 interruptCounter = interruptCounter - 1
                 uart.write(data) 
                 print(data)
+                print("a={}".format(a))
                 a+=1
 
 
@@ -437,14 +444,14 @@ class StateRead:
         analog_data = {}
         serial_data = {}
         a=0
-        led_debug_1.value(config["is_led_on"])
+        led_debug_1.value(config["is_led_1_on"])
 
         if input_var == 2:
             while a < n_data: # 60 amostras
                 if interruptCounter > 0:
                 #toggle led and save to the json file
                     led_debug_1.value(not led_debug_1.value())
-                    config["is_led_on"]=led_debug_1.value()
+                    config["is_led_1_on"]=led_debug_1.value()
                     save_config()
 
                     print("Leitura {} de {}".format(a, n_data))
@@ -453,14 +460,21 @@ class StateRead:
 
                     for nome, equipment in self.instancias.items():
                         if isinstance(equipment, AnalogSensor):
-                            #print("analog type:{}".format(equipment))
                             analog_data=equipment.read()
-  
+                            
+                            for key, respostas in analog_data.items():
+                                size = len(respostas)
+                            print(f"A chave '{key}' tem {size} respostas.")    
+                            
                         #else:
                         #    (f"Erro: {nome} não tem um método 'config' válido.")
                         elif isinstance(equipment, SerialSensor):
                             #print("serial type: {}".format(type(equipment)))
                             serial_data=equipment.read()
+
+                            for key, respostas in serial_data.items():
+                                size = len(respostas)
+                            print(f"A chave '{key}' tem {size} respostas.")    
                             # print("equipment:{}".format(equipment))
                             # print(dir(equipment))
                             #equipment.init()  # Chama o método config da classe SerialSensor
@@ -476,20 +490,30 @@ class StateRead:
                     led_debug_1.value(0)
                     a+=1
 
+            # for chave, respostas in serial_data.items():
+            #     quantidade_respostas = len(respostas)
+            # print(f"A chave '{chave}' tem {quantidade_respostas} respostas.")
+
             # Processamento seguro: se não houver dados, cria um dicionário vazio
             analog_data_processed = equipment.process(analog_data) if analog_data else {}
             serial_data_processed = equipment.process(serial_data) if serial_data else {}
 
             estacao = analog_data_processed | serial_data_processed #T_result + H_result + LM_result + P_result + WS_result + WD_result
             
+            #estacao_round = {key: round(value,3) for key, value in estacao.items()}
+            #print(estacao_round)
+
             chaves_ordenadas = sorted(estacao.keys())
+
             valores_ordenados = [estacao[chave] for chave in chaves_ordenadas]
 
 
             # Achatar a lista aninhada
             valores_achatados = achatar_lista(valores_ordenados)
+            valores_round=[round(value, decimal) for value in valores_achatados]
+
             # Converter para string e formatar
-            estacao = ', '.join(map(str, valores_achatados))
+            estacao = ', '.join(map(str, valores_round))
 
             estacao=[framesync,' ' + estacao]              #coloca framesync no inicio da msg
 
@@ -522,6 +546,10 @@ class StateSend:
         global input_var
         global estacao_comma_separated
 
+        led_debug_2.value(1)
+        config["is_led_2_on"]=led_debug_2.value()
+        save_config()
+
         for nome, self.main_datalogger in self.dataloggerinst.items():
             #print(f"Processando {nome}: {equipment}")
             if isinstance(self.main_datalogger, SerialSensor):
@@ -533,7 +561,10 @@ class StateSend:
         file.write(estacao_comma_separated)
         file.write("\n")
         file.close()
-
+        
+        led_debug_2.value(0)
+        config["is_led_2_on"]=led_debug_2.value()
+        save_config()
         gc.collect() # control of garbage collection
         gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
 
@@ -562,6 +593,9 @@ class StateErase:
         global input_var
         global responses
         global resultadoSerial
+        global start_time
+        global end_time
+
         
         print("erase 1: {}".format(input_var))
         input_var=0
@@ -573,7 +607,11 @@ class StateErase:
         gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
 
         print("erase 2: {}".format(input_var))
+        end_time=time.tick_us()
 
+        elapsed_time = time.ticks_diff(end_time, start_time)
+        print("tempo de execução: {}".format(elapsed_time))
+        
         return StateErase(self.equipments, self.instancias, self.datalogger, self.dataloggerinst).transition(input_var)
 
 #######################################################################################
