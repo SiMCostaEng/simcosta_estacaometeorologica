@@ -29,9 +29,8 @@ def select_uart(uart_ch):
         CH_B_MUX.value(0)
         MSG = "CHANNEL 0 CONNECTED"
         print(MSG)
-        time.sleep(1)
         uart.write("hello\n")
-        time.sleep(5)
+        uart.flush()
         print(uart.read())
         
         
@@ -42,14 +41,11 @@ def select_uart(uart_ch):
         CH_B_MUX.value(0)
         MSG = "CHANNEL 1 CONNECTED" 
         print(MSG)
-        
-        a=1
+        uart.write("hello\n")
+        uart.flush()
 
-        while True:
-            MSG =  str(input("write here: "))
-            uart.write(MSG)
-            RESPOSTA=uart.read()
-            print(RESPOSTA)
+        print(uart.read())
+
 
     elif uart_ch == 2:
         #uart_station = UART(2, baudrate=9600) #BAUDRATE_COMPASS)
@@ -57,8 +53,9 @@ def select_uart(uart_ch):
         CH_B_MUX.value(1)
         MSG = "CHANNEL 2 CONNECTED"
         print(MSG)
-        time.sleep(1)
         uart.write("hello\n")
+        
+        uart.flush()
         time.sleep(5)
         print(uart.read())
 
@@ -68,9 +65,9 @@ def select_uart(uart_ch):
         CH_B_MUX.value(1)
         MSG = "CHANNEL 3 CONNECTED"        
         print(MSG)
-        time.sleep(1)
         uart.write("hello\n")
-        time.sleep(5)
+        
+        uart.flush()
         print(uart.read())
 
 

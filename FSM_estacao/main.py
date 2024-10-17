@@ -8,8 +8,8 @@ import gc
 from variables import *
 import time
 
-start_time = time.ticks_us()
-end_time=0
+# start_time = time.ticks_us()
+# end_time=0
 
 CH_A_MUX = Pin(15, mode=Pin.OUT, value=0)   
 CH_B_MUX  = Pin(4, mode=Pin.OUT, value=0)
@@ -65,25 +65,34 @@ def select_uart(uart_ch, BAUDRATE):
     global uart
     if uart_ch == 0:
         #BAUDRATE=BAUDRATE_STORX
-        uart = UART(2, BAUDRATE)
         CH_A_MUX.value(0)
         CH_B_MUX.value(0)
+        uart = UART(2, BAUDRATE)
+        #uart.write("\r")
+        uart.flush()  # Garante que o comando foi enviado completamente
 
     elif uart_ch == 1:
         #BAUDRATE=BAUDRATE_PROBECO2
-        uart = UART(2, BAUDRATE)
         CH_A_MUX.value(1)
         CH_B_MUX.value(0)
+        uart = UART(2, BAUDRATE)
+        #uart.write("\r")
+        uart.flush()  # Garante que o comando foi enviado completamente
                 
     elif uart_ch == 2:
         #BAUDRATE=BAUDRATE_COMPASS
-        uart = UART(2, BAUDRATE)
         CH_A_MUX.value(0)
         CH_B_MUX.value(1)
+        uart = UART(2, BAUDRATE)
+        #uart.write("\r")
+        uart.flush()  # Garante que o comando foi enviado completamente
 
     elif uart_ch == 3:
         CH_A_MUX.value(1)
         CH_B_MUX.value(1)
+        uart = UART(2, BAUDRATE)
+        #uart.write("\r")
+        uart.flush()  # Garante que o comando foi enviado completamente
 
 
 # Função para achatar a lista manualmente
@@ -186,9 +195,11 @@ class SerialSensor(Sensor):
             if interruptCounter > 0 :
                 interruptCounter = interruptCounter - 1
                 if self.wakeup_msg != " ":
-                    #print("entrei init, escrevendo R")
+                    print("entrei init, escrevendo R")
                     uart.write(self.wakeup_msg)
+                    uart.flush()  # Garante que o comando foi enviado completamente e Limpa o buffer antes de esperar novos dados
                     data=uart.readline()
+                    print(data)
                     if data is not None:
                         data_str = data.decode().strip()  # Strip whitespace errors='ignore'
                         if data_str:  # Check if the string is not empty
@@ -217,6 +228,7 @@ class SerialSensor(Sensor):
     def read(self):
         global interruptCounter
         global resultadoSerial
+        uart.flush()  # Limpa o buffer antes de esperar novos dados
         data=uart.readline()
         matrix=[]
         x_floats=[]
@@ -275,14 +287,15 @@ class SerialSensor(Sensor):
 
     def send(self, data):
         global interruptCounter
-        select_uart(self.uart_ch, self.baudrate)
+        select_uart(self.uart_ch, self.baudrate)# select_uart(self.uart_ch, self.baudrate)
 
         a=0
-        while a < self.time_config: # x segundos de envio definidos no json
 
+        while a < self.time_config: # x segundos de envio definidos no json
             if interruptCounter > 0:
                 interruptCounter = interruptCounter - 1
-                uart.write(data) 
+                uart.write(data)
+                uart.flush()  # Garante que o comando foi enviado completamente
                 print(data)
                 print("a={}".format(a))
                 a+=1
@@ -408,11 +421,15 @@ class StateWait: #OK
         while a < 10: # 10 seguntos de espera
             if interruptCounter > 0:                       
                 interruptCounter = interruptCounter - 1
+                print("sleep {}".format(a))
                 a+=1
 
         for nome, equipment in self.instancias.items():
+            print("teste1")
             if isinstance(equipment, SerialSensor):
+                print("é serial {}".format(equipment))
                 equipment.init()  # Chama o método config da classe SerialSensor
+                print("iniciei {}".format(equipment))
 
         print('waking up')
         input_var=2
@@ -462,9 +479,9 @@ class StateRead:
                         if isinstance(equipment, AnalogSensor):
                             analog_data=equipment.read()
                             
-                            for key, respostas in analog_data.items():
-                                size = len(respostas)
-                            print(f"A chave '{key}' tem {size} respostas.")    
+                            # for key, respostas in analog_data.items():
+                            #     size = len(respostas)
+                            # print(f"A chave '{key}' tem {size} respostas.")    
                             
                         #else:
                         #    (f"Erro: {nome} não tem um método 'config' válido.")
@@ -472,9 +489,7 @@ class StateRead:
                             #print("serial type: {}".format(type(equipment)))
                             serial_data=equipment.read()
 
-                            for key, respostas in serial_data.items():
-                                size = len(respostas)
-                            print(f"A chave '{key}' tem {size} respostas.")    
+
                             # print("equipment:{}".format(equipment))
                             # print(dir(equipment))
                             #equipment.init()  # Chama o método config da classe SerialSensor
@@ -546,9 +561,6 @@ class StateSend:
         global input_var
         global estacao_comma_separated
 
-        led_debug_2.value(1)
-        config["is_led_2_on"]=led_debug_2.value()
-        save_config()
 
         for nome, self.main_datalogger in self.dataloggerinst.items():
             #print(f"Processando {nome}: {equipment}")
@@ -561,10 +573,7 @@ class StateSend:
         file.write(estacao_comma_separated)
         file.write("\n")
         file.close()
-        
-        led_debug_2.value(0)
-        config["is_led_2_on"]=led_debug_2.value()
-        save_config()
+
         gc.collect() # control of garbage collection
         gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
 
@@ -593,8 +602,6 @@ class StateErase:
         global input_var
         global responses
         global resultadoSerial
-        global start_time
-        global end_time
 
         
         print("erase 1: {}".format(input_var))
@@ -607,10 +614,10 @@ class StateErase:
         gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
 
         print("erase 2: {}".format(input_var))
-        end_time=time.tick_us()
+        # end_time=time.ticks_us()
 
-        elapsed_time = time.ticks_diff(end_time, start_time)
-        print("tempo de execução: {}".format(elapsed_time))
+        # elapsed_time = time.ticks_diff(end_time, start_time)
+        # print("tempo de execução: {}".format(elapsed_time))
         
         return StateErase(self.equipments, self.instancias, self.datalogger, self.dataloggerinst).transition(input_var)
 

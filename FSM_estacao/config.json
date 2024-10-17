@@ -2,7 +2,7 @@
     "is_led_1_on":0,
     "is_led_2_on":0,
     "BAUDRATE": 19200,
-    "framesync": "DATAME",
+    "framesync": "METDAT",
     "uart_ch":0,
     "input_var":0,
     "interruptCounter":0,
