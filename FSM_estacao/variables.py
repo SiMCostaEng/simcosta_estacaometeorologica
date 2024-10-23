@@ -69,7 +69,9 @@ for equipment in equipments:
         "P1_out_min": equipment.get("P1_out_min"),
         "P1_out_max": equipment.get("P1_out_max"),
         "wakeup_msg":equipment.get("wakeup_msg"),
-        "time_config":equipment.get("time_config")
+        "time_config":equipment.get("time_config"),
+        "type0":equipment.get("type0"), 
+        "type1":equipment.get("type1"), 
         }
 
     equipment_configs[equipment["equipmentName"]] = equipment_config

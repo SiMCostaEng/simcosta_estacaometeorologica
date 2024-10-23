@@ -7,6 +7,7 @@ from ulab import numpy as np
 import gc
 from variables import *
 import time
+import math 
 
 # start_time = time.ticks_us()
 # end_time=0
@@ -125,13 +126,13 @@ class AnalogSensor(Sensor):
                 "channel_index": config.get(f"channel_index{i}"),
                 "adc": config.get(f"adc{i}"),
                 "port": config.get(f"port{i}"),
+                "type":config.get(f"type{i}"),
                 "P_in_min": config.get(f"P{i}_in_min"),
                 "P_in_max": config.get(f"P{i}_in_max"),
                 "P_out_min": config.get(f"P{i}_out_min"),
                 "P_out_max": config.get(f"P{i}_out_max"),
             })
-        #print(type(self.channels)) # <class 'list'>
-        
+            
 
     def read(self):
         global responses #dicionario que vai salvar as leituras dos sensores. As keys serão os canais
@@ -139,11 +140,13 @@ class AnalogSensor(Sensor):
         for channel in self.channels:
             adc_var=eval(channel["adc"])
             port_cte=eval(channel["port"])
+            type = channel["type"]
 
             signal = readChannel(adc_var, port_cte)
             response = (signal - channel["P_in_min"]) * (channel["P_out_max"] - channel["P_out_min"]) / (channel["P_in_max"] - channel["P_in_min"]) + channel["P_out_min"]
             
-            key = self.equipmentName + "_" + str(channel["channel_index"])
+            key = type + "_" + self.equipmentName + "_" + str(channel["channel_index"])
+            #print(key)
             if key not in responses:
                 responses[key]=[]
             responses[key].append(response)
@@ -155,9 +158,58 @@ class AnalogSensor(Sensor):
     
     def process(self, responses):
         data_processed={}
+
         for key in responses:
-            data_mean=np.mean(responses[key])
-            data_stdv=np.std(responses[key])
+
+            if key.startswith("angular"):
+                sin_sum = 0.0
+                cos_sum = 0.0
+                angles = responses[key]
+                print(angles)
+
+                # Somar seno e cosseno dos ângulos
+                for angle in angles:
+                    r = math.radians(angle)  # Converter para radianos
+                    sin_sum += math.sin(r)
+                    cos_sum += math.cos(r)
+
+                flen = float(len(angles))
+                s = sin_sum / flen
+                c = cos_sum / flen
+                arc = math.degrees(math.atan2(s, c))  # Usar atan2 para garantir o quadrante correto
+                average = arc % 360  # Garantir que o resultado esteja no intervalo [0, 360)
+
+                # Cálculo do desvio padrão
+                sin_std_sum = 0.0
+                cos_std_sum = 0.0
+
+                for angle in angles:
+                    r = math.radians(angle)
+                    sin_std_sum += (math.sin(r) - s) ** 2
+                    cos_std_sum += (math.cos(r) - c) ** 2
+
+                sin_variance = sin_std_sum / flen
+                cos_variance = cos_std_sum / flen
+
+                # A variância angular é a soma das variâncias dos componentes seno e cosseno
+                angular_variance = sin_variance + cos_variance
+                angular_std_dev = math.sqrt(angular_variance)
+
+                print(f"Media: {average}")
+                print(f"Desvio Padrão Angular: {math.degrees(angular_std_dev)} graus")
+
+                print(key)
+                data_mean = average
+                data_stdv = angular_std_dev
+                print(data_mean)
+                print(data_stdv)
+
+            else:
+                print(key)
+                data_mean=np.mean(responses[key])
+                data_stdv=np.std(responses[key])
+                print(data_mean)
+                print(data_stdv)
 
             if key not in data_processed:
                 data_processed[key]=[]
