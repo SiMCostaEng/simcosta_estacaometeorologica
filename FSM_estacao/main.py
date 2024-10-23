@@ -195,21 +195,13 @@ class AnalogSensor(Sensor):
                 angular_variance = sin_variance + cos_variance
                 angular_std_dev = math.sqrt(angular_variance)
 
-                print(f"Media: {average}")
-                print(f"Desvio Padrão Angular: {math.degrees(angular_std_dev)} graus")
 
-                print(key)
                 data_mean = average
-                data_stdv = angular_std_dev
-                print(data_mean)
-                print(data_stdv)
+                data_stdv = math.degrees(angular_std_dev)
 
-            else:
-                print(key)
+            else: #linear
                 data_mean=np.mean(responses[key])
                 data_stdv=np.std(responses[key])
-                print(data_mean)
-                print(data_stdv)
 
             if key not in data_processed:
                 data_processed[key]=[]
