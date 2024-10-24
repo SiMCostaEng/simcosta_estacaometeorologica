@@ -233,9 +233,8 @@ class SerialSensor(Sensor):
         global initialize
         select_uart(self.uart_ch, self.baudrate)
         matrix=[]
-        while a <= self.time_config and initialize == 0: # 10 seguntos de envio para ler o sensor
+        while a < self.time_config and initialize == 0: # 10 seguntos de envio para ler o sensor
             # Envia o comando R para o probe de CO2 para iniciar a leitura
-
             if interruptCounter > 0 :
                 interruptCounter = interruptCounter - 1
                 if self.wakeup_msg != " ":
@@ -561,16 +560,17 @@ class StateRead:
             
             #estacao_round = {key: round(value,3) for key, value in estacao.items()}
             #print(estacao_round)
-
+            print(f"estacao: {estacao}")
             chaves_ordenadas = sorted(estacao.keys())
-
+            print(f"chaves_ordenadas: {CH_A_MUX}")
             valores_ordenados = [estacao[chave] for chave in chaves_ordenadas]
-
-
+            print(f"valores_ordenados: {valores_ordenados}")
             # Achatar a lista aninhada
             valores_achatados = achatar_lista(valores_ordenados)
+            print(f"valores_achatados: {valores_achatados}")
             valores_round=[round(value, decimal) for value in valores_achatados]
-
+            print(f"valores_round: {valores_round}")
+ 
             # Converter para string e formatar
             estacao = ', '.join(map(str, valores_round))
 
