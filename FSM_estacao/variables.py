@@ -72,6 +72,12 @@ for equipment in equipments:
         "time_config":equipment.get("time_config"),
         "type0":equipment.get("type0"), 
         "type1":equipment.get("type1"), 
+        "initialized":equipment.get("initialized"),
+        "format":equipment.get("format"),
+        "var_0":equipment.get("var_0"), 
+        "var_1":equipment.get("var_1"),
+        "var_2":equipment.get("var_2"), 
+        "var_3":equipment.get("var_3")
         }
 
     equipment_configs[equipment["equipmentName"]] = equipment_config

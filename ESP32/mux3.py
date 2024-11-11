@@ -17,7 +17,7 @@ BAUDRATE_STORX = 9600
 BAUDRATE_COMPASS = 9600
 BAUDRATE_PROBECO2 = 9600
 
-uart = UART(2, baudrate=19200)
+uart = UART(2, baudrate=4800)
 #uart_station= UART(2, baudrate=9600) #como controlar a velocidade da UART de acordo com o device se uart multiplexada
 
 def select_uart(uart_ch):
@@ -52,12 +52,13 @@ def select_uart(uart_ch):
         CH_A_MUX.value(0)
         CH_B_MUX.value(1)
         MSG = "CHANNEL 2 CONNECTED"
-        print(MSG)
-        uart.write("hello\n")
-        
-        uart.flush()
-        time.sleep(5)
-        print(uart.read())
+        while(1):
+            tosend = input("type here: ")
+            print(tosend)
+            uart.write(tosend)
+            uart.flush()
+            #time.sleep(5)
+            print(uart.read())
 
 
     elif uart_ch == 3:

@@ -7,7 +7,8 @@ from ulab import numpy as np
 import gc
 from variables import *
 import time
-import math 
+import math
+import re
 
 # start_time = time.ticks_us()
 # end_time=0
@@ -213,7 +214,7 @@ class AnalogSensor(Sensor):
             gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
 
         return data_processed
- 
+                                                                                                                                           
 
 class SerialSensor(Sensor):
     def __init__(self, config):
@@ -224,25 +225,31 @@ class SerialSensor(Sensor):
         self.time_config=config.get("time_config")
         self.wakeup_msg=config.get("wakeup_msg")
         self.n_var = config.get("num_variables")
+        self.initialized=config.get("initialized")
+        self.format=config.get("format")
+        self.vars=[]
 
-
+        for i in range(self.n_var):
+            self.vars.append({
+                "var": config.get(f"var_{i}"),
+            })
+            
 
     def init(self):
         global interruptCounter
         a=0
-        global initialize
         select_uart(self.uart_ch, self.baudrate)
         matrix=[]
-        while a < self.time_config and initialize == 0: # 10 seguntos de envio para ler o sensor
+        while a <= self.time_config and self.initialized == 0: # 10 seguntos de envio para ler o sensor
             # Envia o comando R para o probe de CO2 para iniciar a leitura
             if interruptCounter > 0 :
                 interruptCounter = interruptCounter - 1
                 if self.wakeup_msg != " ":
-                    print("entrei init, escrevendo R")
+                    #print("entrei init, escrevendo R")
                     uart.write(self.wakeup_msg)
-                    uart.flush()  # Garante que o comando foi enviado completamente e Limpa o buffer antes de esperar novos dados
+ #                   uart.flush()  # Garante que o comando foi enviado completamente e Limpa o buffer antes de esperar novos dados
                     data=uart.readline()
-                    print(data)
+                    print(f"data is: {data}")
                     if data is not None:
                         data_str = data.decode().strip()  # Strip whitespace errors='ignore'
                         if data_str:  # Check if the string is not empty
@@ -254,7 +261,8 @@ class SerialSensor(Sensor):
                                     x_floats = [float(valor) for valor in x]
                                     matrix.append(x_floats)
                                     print("Sensor {} has been successfully initialized!".format(self.equipmentName))
-                                    initialize = 1
+                                    self.initialized = 1
+                                    print(f"init: {self.initialized}")
                                     a+=1
 
                                 except ValueError as e:
@@ -266,7 +274,8 @@ class SerialSensor(Sensor):
                         else:
                             print("Empty data received")
                             a+=1
-
+        if a== self.time_config and initialize == 0:
+            print("Station was unable to initialize {}".format(self.equipmentName))
 
     def read(self):
         global interruptCounter
@@ -275,35 +284,112 @@ class SerialSensor(Sensor):
         data=uart.readline()
         matrix=[]
         x_floats=[]
-                
-        if data is not None:
-            try: 
-                data_str = data.decode().strip()  # Strip whitespace
-                #print(data_str)
-                if data_str:  # Check if the string is not empty
-                    x = data_str.split()
-                    size = sum(1 for _ in x)
-    
-                    if size == self.n_var:  # Check if the split result has the expected length
-                        try:
-                            x_floats = [float(valor) for valor in x]
-                            matrix.append(x_floats)
-                        except ValueError as e:
-                            print("Error converting data to float:", e)
-                    else:
-                        print("Unexpected number of values in data:", x)
-                else:
-                    print("Empty data received")
-            except:
-                pass
+        select_uart(self.uart_ch, self.baudrate)
+        print(f"uart:{self.uart_ch}")
+        print(f"baudrate:{self.baudrate}")
 
-        # Criar um dicionário para armazenar as leituras com o formato equipmentName_index
+        if self.format == "ASCII":
+            print("é ASCII")
+            print(data) #b'  605.6    26.6\r\n'
+            print(type(data))
+            if data is not None:
+                try: 
+                    data_str = data.decode().strip()  # Strip whitespace
+                    print(data_str) #605.6    26.5
+                    if data_str:  # Check if the string is not empty
+                        x = data_str.split()
+                        print(x) #['605.6', '26.5']
+                        size = sum(1 for _ in x)
         
-        for i, value in enumerate(x_floats, 1):
-            key = f"{self.equipmentName}_{i}"
-            if key not in resultadoSerial:
-                resultadoSerial[key] = []  # Inicializa a lista se for a primeira leitura
-            resultadoSerial[key].append(value)  # Adiciona a nova leitura à lista correspondente
+                        if size == self.n_var:  # Check if the split result has the expected length
+                            try:
+                                x_floats = [float(valor) for valor in x]
+                                matrix.append(x_floats)
+                            except ValueError as e:
+                                print("Error converting data to float:", e)
+                        else:
+                            print("Unexpected number of values in data:", x)
+                    else:
+                        print("Empty data received")
+                except:
+                    pass
+
+            if self.initialized:# Verifica se o sensor falhou ao inicializar
+            # Criar um dicionário para armazenar as leituras com o formato equipmentName_index
+                for i, value in enumerate(x_floats, 1):
+                    key = f"{self.equipmentName}_{i}"
+                    if key not in resultadoSerial:
+                        resultadoSerial[key] = []  # Inicializa a lista se for a primeira leitura
+                    resultadoSerial[key].append(value)  # Adiciona a nova leitura à lista correspondente
+            else:
+                # Sensor falhou: Inicializa todas as chaves com valor 0
+                for i in range(1, self.n_var + 1):  # Defina `numero_de_leituras` conforme necessário
+                    key = f"{self.equipmentName}_{i}"
+                    resultadoSerial[key] = [0]  # Define o valor inicial como 0
+
+        elif self.format == "NMEA":
+            if data is not None:
+   
+                    #x_floats = re.findall(r'\d+\.\d+',data)
+                    #x_floats = [float(x_float) for x_float in x_floats] 
+                #data_str=str(data)
+                print(data)
+                print(type(data))
+                data_str=str(data)
+                print(type(data_str))
+
+                caracteres_para_substituir=["P","T","R","*"]
+                c=["$","b","'","C"]
+
+                for char in caracteres_para_substituir:
+                    data_str=data_str.replace(char,",")
+                    print(data_str)
+                #data_str = data.decode().strip()  # Strip whitespace
+                # data_str = data_str.strip("$*")
+                for char in c:
+                    data_str=data_str.replace(char,"")
+  
+                data_str=data_str.strip()
+                print(f"datastrstripped:{data_str}")
+
+
+                try: 
+                    data_str = data_str.decode().strip("$*")  # Strip whitespace
+                    print(f"datastrstripped:{data_str}")
+
+                    if data_str:  # Check if the string is not empty
+                        x = data_str.split()
+                        size = sum(1 for _ in x)
+        
+                        if size == self.n_var:  # Check if the split result has the expected length
+                            try:
+                                x_floats = [float(valor) for valor in x]
+                                matrix.append(x_floats)
+                            except ValueError as e:
+                                print("Error converting data to float:", e)
+                        else:
+                            print("Unexpected number of values in data:", x)
+                    else:
+                        print("Empty data received")
+                except:
+                    pass
+
+
+                
+
+                    # Substituir letras por espaço
+                # for char in "CPRT":
+                #     data_str = data_str.replace(char, " ")
+
+                #     # Dividir e converter para floats
+                # valores = [float(valor) for valor in data_str.split()]
+                    
+                    
+                # print(f"compass measurement is: {valores}")
+                
+            
+        else:
+            print("Couldn't recognize the format.")
 
 
         gc.collect()  # Controle da coleta de lixo
@@ -338,37 +424,13 @@ class SerialSensor(Sensor):
             if interruptCounter > 0:
                 interruptCounter = interruptCounter - 1
                 uart.write(data)
+                #ndata=uart.write(data)
+                #print(f"ndata={ndata}")
                 uart.flush()  # Garante que o comando foi enviado completamente
                 print(data)
-                print("a={}".format(a))
+                #print("a={}".format(a))
                 a+=1
 
-
-# class Compass:
-#     def __init__(self, uart_ch, BAUDRATE_COMPASS):
-#         self.uart_ch=uart_ch
-#         self.baudrate=BAUDRATE_COMPASS
-
-
-#     def get_first_nbr_from_str(self, Compass_info):
-#         if not input_str and not isinstance(input_str, str):
-#             return 0
-#         out_number = ''
-#         for ele in input_str:
-#             if (ele == '.' and '.' not in out_number) or ele.isdigit():
-#                 out_number += ele
-#             elif out_number:
-#                 break
-#         Compass_data=float(out_number)
-#         return Compass_data
-
-#     def read(self):
-#         global uart, a, uart_ch, Compass_info
-#         if Compass_info != None:
-#             Compass_info=str(Compass_info)
-#             Compass_info = get_first_nbr_from_str(Compass_info)
-#             print(Compass_info)
-#         return Compass_info
 
 class initSensors:
     @staticmethod
@@ -461,16 +523,16 @@ class StateWait: #OK
         print("state: {}".format(input_var))
         print('going to sleep')
 
-        while a < 10: # 10 seguntos de espera
+        while a < 20: # 10 seguntos de espera
             if interruptCounter > 0:                       
                 interruptCounter = interruptCounter - 1
-                print("sleep {}".format(a))
+                print("sleeping for... {}".format(a))
                 a+=1
 
         for nome, equipment in self.instancias.items():
-            print("teste1")
+            #print("teste1")
             if isinstance(equipment, SerialSensor):
-                print("é serial {}".format(equipment))
+                #print("é serial {}".format(equipment))
                 equipment.init()  # Chama o método config da classe SerialSensor
                 print("iniciei {}".format(equipment))
 
@@ -507,30 +569,80 @@ class StateRead:
         led_debug_1.value(config["is_led_1_on"])
 
         if input_var == 2:
-            while a < n_data: # 60 amostras
+            #leitura sensores analógicos
+            while a < n_data:
                 if interruptCounter > 0:
-                #toggle led and save to the json file
+                    #toggle led and save to the json file
                     led_debug_1.value(not led_debug_1.value())
                     config["is_led_1_on"]=led_debug_1.value()
                     save_config()
-
-                    print("Leitura {} de {}".format(a, n_data))
-                    # Diagnóstico: Verificar o conteúdo de self.instancias
-                    # print("Instâncias disponíveis:", self.instancias)
-
                     for nome, equipment in self.instancias.items():
                         if isinstance(equipment, AnalogSensor):
+                            print("Leitura {} de {} de sensor do tipo {}".format(a, n_data, type(equipment)))
                             analog_data=equipment.read()
-                            
-                            # for key, respostas in analog_data.items():
-                            #     size = len(respostas)
-                            # print(f"A chave '{key}' tem {size} respostas.")    
-                            
-                        #else:
-                        #    (f"Erro: {nome} não tem um método 'config' válido.")
-                        elif isinstance(equipment, SerialSensor):
-                            #print("serial type: {}".format(type(equipment)))
+                    interruptCounter = interruptCounter - 1
+                    led_debug_1.value(0)
+                    if a==(n_data-1):
+                        print("Done!")
+                    a+=1
+                    
+            a=0
+            while a<n_data:
+                if interruptCounter >0:
+                    led_debug_1.value(not led_debug_1.value())
+                    config["is_led_1_on"]=led_debug_1.value()
+                    save_config()
+                    for nome, equipment in self.instancias.items():
+                        if isinstance(equipment, SerialSensor):
+                            print("Leitura {} de {} de sensor do tipo {}".format(a, n_data, type(equipment)))
                             serial_data=equipment.read()
+                            print(f"serial {equipment}:{serial_data}")
+                    interruptCounter = interruptCounter - 1
+                    led_debug_1.value(0)
+                    if a==(n_data-1):
+                        print("Done!")
+                    a+=1
+                    
+
+
+
+
+
+
+            # while a < n_data: # 60 amostras
+            #     if interruptCounter > 0:
+            #     #toggle led and save to the json file
+            #         led_debug_1.value(not led_debug_1.value())
+            #         config["is_led_1_on"]=led_debug_1.value()
+            #         save_config()
+
+            #         print("Leitura {} de {}".format(a, n_data))
+            #         # Diagnóstico: Verificar o conteúdo de self.instancias
+            #         # print("Instâncias disponíveis:", self.instancias)
+
+                    
+
+            #         interruptCounter = interruptCounter - 1
+            #         led_debug_1.value(0)
+            #         a+=1
+            # a=0
+            # if isinstance(equipment, SerialSensor):
+            #     print("entrei aqui")
+            #     print(self.instancias)
+            #     print(type(self.instancias))
+            #     print(self.equipments)
+            #     print(type(self.equipments))
+            #     for uart, equipment in self.instancias.items():
+            #         while a < n_data:
+            #             if interruptCounter>0:
+            #                 print("equipment: {}".format(type(equipment)))
+            #                 print("equipment: {}".format(equipment))
+            #                 print("uart: {}".format(type(uart)))
+            #                 print("uart: {}".format(uart))
+
+            #                 serial_data=equipment.read()
+            #                 interruptCounter = interruptCounter - 1
+            #                 a+=1
 
 
                             # print("equipment:{}".format(equipment))
@@ -540,13 +652,8 @@ class StateRead:
 
                         #else:
                          #   (f"Erro: {nome} não tem um método 'config' válido.") 
-                        else:
-                            print(f"{nome} não é do tipo AnalogSensor ou SerialSensor. Ignorando...")
-
-
-                    interruptCounter = interruptCounter - 1
-                    led_debug_1.value(0)
-                    a+=1
+            #else:
+            #    print(f"{nome} não é do tipo AnalogSensor ou SerialSensor. Ignorando...")
 
             # for chave, respostas in serial_data.items():
             #     quantidade_respostas = len(respostas)
@@ -560,16 +667,16 @@ class StateRead:
             
             #estacao_round = {key: round(value,3) for key, value in estacao.items()}
             #print(estacao_round)
-            print(f"estacao: {estacao}")
+            #print(f"estacao: {estacao}")
             chaves_ordenadas = sorted(estacao.keys())
-            print(f"chaves_ordenadas: {CH_A_MUX}")
+            #print(f"chaves_ordenadas: {chaves_ordenadas}")
             valores_ordenados = [estacao[chave] for chave in chaves_ordenadas]
-            print(f"valores_ordenados: {valores_ordenados}")
+            #print(f"valores_ordenados: {valores_ordenados}")
             # Achatar a lista aninhada
             valores_achatados = achatar_lista(valores_ordenados)
-            print(f"valores_achatados: {valores_achatados}")
+            #print(f"valores_achatados: {valores_achatados}")
             valores_round=[round(value, decimal) for value in valores_achatados]
-            print(f"valores_round: {valores_round}")
+            #print(f"valores_round: {valores_round}")
  
             # Converter para string e formatar
             estacao = ', '.join(map(str, valores_round))

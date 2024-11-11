@@ -6,7 +6,7 @@
     "uart_ch":0,
     "input_var":0,
     "interruptCounter":0,
-    "n_data":60,
+    "n_data":10,
     "decimal":4,
     "equipments":[
         {
@@ -79,9 +79,24 @@
             "num_variables":2,
             "uart_ch":1,
             "BAUDRATE": 19200,
+            "format":"ASCII",
             "wakeup_msg":"R\r\n",
-            "time_config":20
-        }
+            "time_config":30,
+            "initialized":0},
+        {
+            "className":"SerialSensor",
+            "equipmentName":"CompassTCM2.5",
+            "num_variables":4,
+            "uart_ch":2,
+            "BAUDRATE":4800,
+            "format":"NMEA",
+            "wakeup_msg":" ",
+            "var_0":"C", 
+            "var_1":"P",
+            "var_2":"R", 
+            "var_3":"T",
+            "time_config":0,
+            "initialized":1} 
     ],
     "datalogger":[
         {
@@ -90,7 +105,7 @@
             "num_variables":0,
             "uart_ch":0,
             "BAUDRATE":19200,
-            "time_config":60
+            "time_config":90
         }
     ],
     "schedule":[
