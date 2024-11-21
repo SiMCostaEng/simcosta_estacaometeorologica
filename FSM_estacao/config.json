@@ -4,6 +4,7 @@
     "BAUDRATE": 19200,
     "framesync": "METDAT",
     "uart_ch":0,
+    "CURRENT_UART":0,
     "input_var":0,
     "interruptCounter":0,
     "n_data":10,
@@ -81,7 +82,7 @@
             "BAUDRATE": 19200,
             "format":"ASCII",
             "wakeup_msg":"R\r\n",
-            "time_config":30,
+            "time_config":60,
             "initialized":0},
         {
             "className":"SerialSensor",
