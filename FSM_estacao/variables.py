@@ -74,10 +74,8 @@ for equipment in equipments:
         "type1":equipment.get("type1"), 
         "initialized":equipment.get("initialized"),
         "format":equipment.get("format"),
-        "var_0":equipment.get("var_0"), 
-        "var_1":equipment.get("var_1"),
-        "var_2":equipment.get("var_2"), 
-        "var_3":equipment.get("var_3")
+        "checksum_type":equipment.get("checksum_type"),
+        "checksum_format":equipment.get("checksum_format")
         }
 
     equipment_configs[equipment["equipmentName"]] = equipment_config

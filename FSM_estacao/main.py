@@ -242,7 +242,6 @@ class AnalogSensor(Sensor):
 
         return data_processed
                                                                                                                                            
-
 class SerialSensor(Sensor):
     def __init__(self, config):
         super().__init__(config)
@@ -254,6 +253,8 @@ class SerialSensor(Sensor):
         self.n_var = config.get("num_variables")
         self.initialized=config.get("initialized")
         self.format=config.get("format")
+        self.checksum_type=config.get("checksum_type")
+        self.checksum_format=config.get("checksum_format")
         self.vars=[]
 
         for i in range(self.n_var):
@@ -261,15 +262,63 @@ class SerialSensor(Sensor):
                 "var": config.get(f"var_{i}"),
             })
             
-    def checksum_evaluate(self, s: str) -> int:
+    def checksum_evaluate(self, s:str) -> int:
         # Converte a string em bytes e calcula a soma de cada byte
-        mysum = sum(s.encode('utf-8'))  # soma dos valores dos bytes
-        return mysum % 256  # retorna o checksum (mod 256 para limitar ao intervalo de um byte)
+        # Calcula o checksum de acordo com o tipo e formato determinado no JSON
+        if self.checksum_type == "MOD256":
+            mysum = sum(s.encode('utf-8'))  # Soma os valores dos bytesmysum = sum(s)  # soma dos valores dos bytes
+            return mysum % 256  # retorna o checksum (mod 256 para limitar ao intervalo de um byte)
+            
+        elif self.checksum_type == "XOR":
+            checksum = 0
+            for byte in s:
+                checksum ^= ord(byte)
 
-    def checksum_verify(self, s: str, checksum_target: int) -> bool:
-        checksum_eval = self.calcular_checksum(s)
-        return checksum_eval == checksum_target
+            if self.checksum_format == "dec":
+                return checksum
+            elif self.checksum_format == "hex":
+                return f"{checksum:02X}"  # Retorna o checksum em hexadecimal (2 caracteres)
 
+
+    def checksum_verify(self, s: str) -> bool:
+        """Verifica se o checksum da string é válido. A string deve ter o formato 'conteudo*checksum'."""
+
+        try:
+            # Verifica se a string contém o caractere '*'
+            if '*' not in s:
+                print("Erro: '*' não encontrado na string.")
+                return False
+
+            if s.startswith(b'$'):
+                s=s[1:] #remover $
+                # print(f"s:{s}")
+            
+            # Separar a parte principal e o checksum fornecido
+            if isinstance(s,bytes):
+                conteudo, checksum = s.decode().rsplit('*', 1)
+            elif isinstance(s,str):
+                conteudo, checksum = s.rsplit('*', 1)
+            else:
+                print("String de formato desconhecido")
+            
+            if self.checksum_type=="MOD256":          
+            # Verificar se o checksum fornecido é numérico
+                if not checksum.isdigit():
+                    print("Erro: O checksum fornecido não é numérico.")
+                    return False
+                # Calcular o checksum da parte principal
+                checksum_calculado = self.checksum_evaluate(conteudo.strip())
+                return checksum_calculado == int(checksum.strip())
+            
+            elif self.checksum_type=="XOR":
+                checksum_calculado = self.checksum_evaluate(conteudo)
+                return checksum_calculado.upper() == checksum.strip().upper()
+
+        except Exception as e:
+            # Caso algum erro inesperado aconteça
+            print(f"Erro ao verificar checksum: {e}")
+            return False
+        
 
     def init(self):
         global interruptCounter
@@ -345,15 +394,15 @@ class SerialSensor(Sensor):
 
         if self.format == "ASCII":
             #print("é ASCII")
-            print(data) #b'  605.6    26.6\r\n'
+            #print(data) #b'  605.6    26.6\r\n'
             #print(type(data))
             if data is not None:
                 try: 
                     data_str = data.decode().strip()  # Strip whitespace
-                    print(data_str) #605.6    26.5
+                    #print(data_str) #605.6    26.5
                     if data_str:  # Check if the string is not empty
                         x = data_str.split()
-                        print(x) #['605.6', '26.5']
+                        #print(x) #['605.6', '26.5']
                         size = sum(1 for _ in x)
         
                         if size == self.n_var:  # Check if the split result has the expected length
@@ -383,63 +432,58 @@ class SerialSensor(Sensor):
                     resultadoSerial[key] = [0]  # Define o valor inicial como 0
 
         elif self.format == "NMEA":
-            print(data)
-            print(type(data)) #bytes
+            #print(data)
+            #print(type(data)) #bytes
             if data is not None:
-                cleaned_data = bytes([b for b in data if 32 <= b <= 126 or b in (10, 13)])
-                
-                try:
-                    # Tentar decodificar os bytes limpos
-                    decoded_data = cleaned_data.decode('utf-8') 
-                    #decoded_data = decoded_data.decode().strip("$*")  # Strip whitespace
-                    print(f"decoded data:{decoded_data}")
-                    print(type(decoded_data)) #str
-                except UnicodeDecodeError:
-                    # Se falhar, retorne uma string vazia
-                    return ''
+                if self.checksum_verify(data):
+                    print(f"checksum is ok? {self.checksum_verify(data)}")
 
-                    #x_floats = re.findall(r'\d+\.\d+',data)
-                    #x_floats = [float(x_float) for x_float in x_floats] 
-                #data_str=str(data)
-                
-                caracteres_para_substituir=["P","T","R","*"]
-                c=["$","b","'","C"]
-
-                for char in caracteres_para_substituir:
-                    decoded_data=decoded_data.replace(char,",")
-                    #print(decoded_data)
-                #data_str = data.decode().strip()  # Strip whitespace
-                # data_str = data_str.strip("$*")
-                for char in c:
-                    decoded_data=decoded_data.replace(char,"")
-                
-                print(decoded_data)
-
-
-                if decoded_data:  # Check if the string is not empty
-                    x = decoded_data.split(',')
-
-                    try:
-                        x_floats = [float(valor) for valor in x[:self.n_var]]
-                        size=len(x_floats)
-                        
-                        if size != self.n_var:
-                            print("Unexpected number of values in data")
-                        
-                        matrix.append(x_floats)
+                    cleaned_data = bytes([b for b in data if 32 <= b <= 126 or b in (10, 13)])
                     
-                    except ValueError as e:
-                        print("Error converting data to float:", e)
-                else:
-                    print("Empty data received")
-                    #     try:
-                    #         x_floats = [float(valor) for valor in x]
-                    #         matrix.append(x_floats)
-                    #             print(f"matrix:{matrix}")
-                    #         
-                    #     else:
-                    #         print("Unexpected number of values in data:", x)
+                    try:
+                        # Tentar decodificar os bytes limpos
+                        decoded_data = cleaned_data.decode('utf-8') 
+                        #decoded_data = decoded_data.decode().strip("$*")  # Strip whitespace
+                        #print(f"decoded data:{decoded_data}")
+                        #print(type(decoded_data)) #str
+                    except UnicodeDecodeError:
+                        # Se falhar, retorne uma string vazia
+                        return ''
 
+                        #x_floats = re.findall(r'\d+\.\d+',data)
+                        #x_floats = [float(x_float) for x_float in x_floats] 
+                    #data_str=str(data)
+                    
+                    caracteres_para_substituir=["P","T","R","*"]
+                    c=["$","b","'","C"]
+
+                    for char in caracteres_para_substituir:
+                        decoded_data=decoded_data.replace(char,",")
+                        #print(decoded_data)
+                    #data_str = data.decode().strip()  # Strip whitespace
+                    # data_str = data_str.strip("$*")
+                    for char in c:
+                        decoded_data=decoded_data.replace(char,"")
+                    
+                    #print(decoded_data)
+                    if decoded_data:  # Check if the string is not empty
+                        x = decoded_data.split(',')
+
+                        try:
+                            x_floats = [float(valor) for valor in x[:self.n_var]]
+                            size=len(x_floats)
+                            
+                            if size != self.n_var:
+                                print("Unexpected number of values in data")
+                            
+                            matrix.append(x_floats)
+                        
+                        except ValueError as e:
+                            print("Error converting data to float:", e)
+                    else:
+                        print("Empty data received")
+                else:
+                    print("Checksum doesn't match")
                             # Criar um dicionário para armazenar as leituras com o formato equipmentName_index
             if self.initialized:# Verifica se o sensor falhou ao inicializar
             # Criar um dicionário para armazenar as leituras com o formato equipmentName_index
@@ -448,14 +492,11 @@ class SerialSensor(Sensor):
                     if key not in resultadoSerial:
                         resultadoSerial[key] = []  # Inicializa a lista se for a primeira leitura
                     resultadoSerial[key].append(value)  # Adiciona a nova leitura à lista correspondente
-
             else:
                 # Sensor falhou: Inicializa todas as chaves com valor 0
                 for i in range(1, self.n_var + 1):  # Defina `numero_de_leituras` conforme necessário
                     key = f"{self.equipmentName}_{i}"
-                    resultadoSerial[key] = [0]  # Define o valor inicial como 0
-
-            
+                    resultadoSerial[key] = [0]  # Define o valor inicial como 0  
         else:
             print("Couldn't recognize the format.")
 
@@ -488,16 +529,35 @@ class SerialSensor(Sensor):
 
         a=0
 
-        while a < self.time_config: # x segundos de envio definidos no json
-            if interruptCounter > 0:
-                interruptCounter = interruptCounter - 1
-                uart.write(data)
-                #ndata=uart.write(data)
-                #print(f"ndata={ndata}")
-                uart.flush()  # Garante que o comando foi enviado completamente
-                print(data)
-                #print("a={}".format(a))
-                a+=1
+  
+        data=data.strip()
+        # print(f"data strip:{data}")
+        #adicionando checksum à string para envio
+        checksum = self.checksum_evaluate(data)
+        # print(f"meu checksum:{checksum}")
+
+        
+        string_final = data + "*" + str(checksum)
+
+        # print(f"string_final:{string_final}")
+        # Dividir no caractere '*', remover espaços e reconstruir
+        # conteudo, checksum = string_final.rsplit('*', 1)
+        # s_corrigida = f"{conteudo.strip()}*{checksum.strip()}"
+        # print(f"s_corrigida: {s_corrigida}")
+        # if self.checksum_verify(s_corrigida):
+        if self.checksum_verify(string_final):
+            #print(f"verify: {self.checksum_verify(string_final)}")
+
+            while a < self.time_config: # x segundos de envio definidos no json
+                if interruptCounter > 0:
+                    interruptCounter = interruptCounter - 1
+                    uart.write(string_final)
+                    #ndata=uart.write(data)
+                    #print(f"ndata={ndata}")
+                    uart.flush()  # Garante que o comando foi enviado completamente
+                    print(f"string enviada: {string_final}")
+                    #print("a={}".format(a))
+                    a+=1
 
 
 class initSensors:
@@ -646,8 +706,9 @@ class StateRead:
                     save_config()
                     for nome, equipment in self.instancias.items():
                         if isinstance(equipment, AnalogSensor):
-                            print("Leitura {} de {} de sensor do tipo {}".format(a, n_data, type(equipment)))
+                           
                             analog_data=equipment.read()
+                    #print("Leitura {} de {} de sensor do tipo {}".format(a, n_data, type(equipment)))
                     interruptCounter = interruptCounter - 1
                     led_debug_1.value(0)
                     if a==(n_data-1):
@@ -682,10 +743,16 @@ class StateRead:
                             print("Leitura {} de {} de sensor do tipo {}".format(a, n_data, type(equipment)))
                             serial_data=equipment.read()
                             print(f"serial {equipment}:{serial_data}")
+                            #print(f"tipo serial dada: {type(serial_data)}") #dict
                             interruptCounter = interruptCounter - 1
                             led_debug_1.value(0)
                             if a==(n_data-1):
-                                print("Done!")
+                                
+                                if len(serial_data[equipment])<n_data:
+                                    print("nao tenho a quantidade certa")
+
+                                else:
+                                    print("Done!")
                             a+=1
                     a=0
         

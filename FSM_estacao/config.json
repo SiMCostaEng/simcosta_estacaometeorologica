@@ -92,12 +92,10 @@
             "BAUDRATE":4800,
             "format":"NMEA",
             "wakeup_msg":" ",
-            "var_0":"C", 
-            "var_1":"P",
-            "var_2":"R", 
-            "var_3":"T",
-            "time_config":0,
-            "initialized":1} 
+            "time_config":-1,
+            "initialized":1,
+            "checksum_type":"XOR",
+            "checksum_format":"hex"} 
     ],
     "datalogger":[
         {
@@ -106,7 +104,9 @@
             "num_variables":0,
             "uart_ch":0,
             "BAUDRATE":19200,
-            "time_config":90
+            "time_config":90,
+            "checksum_type":"MOD256",
+            "checksum_format":"dec"
         }
     ],
     "schedule":[
